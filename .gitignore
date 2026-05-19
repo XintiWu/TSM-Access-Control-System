@@ -1,0 +1,14 @@
+*.exe
+*.test
+/vendor/
+.idea/
+.vscode/
+*.sum.bak
+
+# 設計文件與內部交接資料，不納入版本庫
+docs/
+
+# 本機編譯產物
+badge-reader-sim/sim
+access-api/access-api
+aggregation-worker/aggregation-worker
