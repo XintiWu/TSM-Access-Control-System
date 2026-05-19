@@ -2,7 +2,6 @@
 set -euo pipefail
 
 # Test UUIDs for demo
-BANNED_USER="00000000-0000-0000-0000-000000000099"
 DOOR_ID="11111111-1111-1111-1111-111111111111"
 NORMAL_USER="22222222-2222-2222-2222-222222222222"
 
@@ -14,11 +13,10 @@ redis_cmd() {
   fi
 }
 
-redis_cmd SET "perm:denied:${BANNED_USER}" "DENY" EX 86400
 redis_cmd SET "door:status:${DOOR_ID}" "ONLINE" EX 30
 redis_cmd DEL "passback:${NORMAL_USER}"
 
 echo "Seeded Redis:"
-echo "  perm:denied:${BANNED_USER} = DENY"
 echo "  door:status:${DOOR_ID} = ONLINE"
 echo "  passback:${NORMAL_USER} cleared"
+echo "  (use Admin API / make ban for perm:denied — not seeded here)"

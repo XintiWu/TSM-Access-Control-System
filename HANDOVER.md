@@ -1,7 +1,9 @@
 # 專案交接文件 — Distributed Physical Access Control System
 
 **交接日期：** 2026-05-19  
-**範圍：** Phase 1 — Access Fast Path（刷卡機 / 門禁決策路徑）  
+**範圍：** Phase 1 Fast Path + Phase 2 Admin 封禁鏈路  
+**最後更新：** 2026-05-19（Phase 2 Admin 封禁鏈路、Kafka→DB 驗證與 E2E 測試）
+
 ---
 
 ## 1. 專案目標（簡述）
@@ -13,7 +15,7 @@
 - **非同步寫入**：刷卡事件經 Kafka 緩衝，再由 Worker 寫入 MariaDB
 - **韌性**：主資料庫掛掉時，門仍可開（決策與事件發布不依賴 DB）
 
-本次交接僅涵蓋架構圖中的 **Access Tier + Data Tier 之刷卡相關部分**，不含報表、管理後台、K8s 維運。
+已涵蓋 **Access Tier 刷卡路徑** 與 **Admin 封禁 / Cache Invalidation**；尚未含 Report API、K8s 維運。
 
 ---
 
@@ -22,20 +24,25 @@
 ```
 Distributed Physical Access Control System/
 ├── docker-compose.yml          # 本地一鍵啟動全部服務
-├── Makefile                    # up / down / seed / demo / swipe / test
+├── Makefile                    # up / migrate / ban / demo-ban / verify-pipeline / test
 ├── README.md                   
 ├── migrations/
-│   └── 001_inout_events.sql    # MariaDB 事件表 DDL
+│   ├── 001_inout_events.sql
+│   └── 002_employee.sql        # 員工主資料 + demo seed
 ├── scripts/
-│   ├── seed-redis.sh           # 灌測試用 Redis 資料
-│   ├── demo.sh                 # 反潛回 + 封禁示範（curl + jq）
-│   └── verify-pipeline.sh      # Kafka → Worker → MariaDB 鏈路驗證
-├── access-api/                 # Go：Access API（Gin）
-├── aggregation-worker/         # Go：Kafka → MariaDB
-└── badge-reader-sim/           # Go CLI：模擬刷卡機
+│   ├── seed-redis.sh
+│   ├── demo.sh
+│   ├── demo-ban.sh             # Admin 封禁鏈路示範
+│   └── verify-pipeline.sh
+├── access-api/
+│   └── tests/integration/      # swipe 整合測試、Kafka→DB E2E
+├── admin-api/                  # 封禁/解封 REST
+├── cache-invalidation-worker/  # permission-events → Redis
+├── aggregation-worker/
+└── badge-reader-sim/
 ```
 
-**注意：** 三個 Go 子專案各有獨立 `go.mod`，在根目錄執行 `go run` 會失敗，請 `cd` 進對應目錄或使用 `make swipe`。
+**注意：** 各 Go 服務有獨立 `go.mod`；根目錄請用 `make` 目標。
 
 ---
 
@@ -45,16 +52,18 @@ Distributed Physical Access Control System/
 
 | 項目 | 說明 |
 |------|------|
-| Docker Compose | Redis、Kafka（apache/kafka:3.7.0）、MariaDB、access-api、aggregation-worker |
-| MariaDB 初始化 | `migrations/001_inout_events.sql` 自動建立 `inout_events` 表 |
-| Makefile | `make up` / `down` / `seed` / `demo` / `swipe` / `verify-pipeline` / `test-unit` / `test-integration` / `test-e2e-pipeline` |
-| 測試資料腳本 | `seed-redis.sh`（支援本機無 redis-cli 時改走 `docker compose exec`） |
+| Docker Compose | Redis、Kafka、MariaDB、access-api、admin-api、aggregation-worker、cache-invalidation-worker |
+| MariaDB 初始化 | `001_inout_events.sql`、`002_employee.sql`（新 volume 自動執行；舊 volume 用 `make migrate`） |
+| Makefile | 含 `init-kafka-topics`、`migrate`、`ban`/`unban`、`demo-ban`、`verify-pipeline`、`test-e2e-pipeline` 等 |
+| 測試資料腳本 | `seed-redis.sh`（僅 door 狀態與 passback；**不**寫入 `perm:denied`） |
+| Kafka Topics | `make up` 時建立 `inout-events`、`permission-events`，並重啟 cache-invalidation-worker |
 
 **埠號（本機）：**
 
 | 服務 | 埠 |
 |------|-----|
 | Access API | 8080 |
+| Admin API | 8081 |
 | Redis | 6379 |
 | Kafka | 9092 |
 | MariaDB | **3307**（對外；因本機 3306 常被佔用） |
@@ -90,17 +99,86 @@ Distributed Physical Access Control System/
 
 | 項目 | 說明 |
 |------|------|
-| Kafka Topic | `inout-events`（自動建立） |
-| 事件 Schema | JSON：`eventId`, `employeeId`, `doorId`, `direction`, `eventTime`, `status`, `reason`, `cardUid`, `sourceIp` |
-| Producer | `access-api/internal/queue/kafka_producer.go`（含失敗重試佇列） |
-| Aggregation Worker | 消費 Kafka → `INSERT IGNORE INTO inout_events`（依 eventId 去重） |
+| Kafka Topic `inout-events` | Access API 發布刷卡事件 |
+| Kafka Topic `permission-events` | Admin API 發布封禁/解封事件 |
+| 刷卡事件 Schema | JSON：`eventId`, `employeeId`, `doorId`, `direction`, `eventTime`, `status`, `reason`, `cardUid`, `sourceIp` |
+| 權限事件 Schema | JSON：`userId`, `action`（`BAN`/`UNBAN`）, `eventTime` |
+| Producer | `access-api`、`admin-api` 各自 `internal/queue/kafka_producer.go` |
+| Aggregation Worker | 消費 `inout-events` → `INSERT IGNORE INTO inout_events` |
+| Cache Invalidation Worker | 消費 `permission-events` → 更新 Redis `perm:denied:{userId}` |
 
-### 3.4 刷卡機模擬器（`badge-reader-sim/`）
+### 3.4 Admin 封禁鏈路（Phase 2）
+
+| 項目 | 說明 |
+|------|------|
+| Admin API | `POST /admin/employees/{userId}/ban`、`/unban`（埠 8081） |
+| DB | `employee` 表（`migrations/002_employee.sql`），更新 `is_active` |
+| Kafka | Topic `permission-events` |
+| Cache Invalidation Worker | BAN → `SET perm:denied:{userId} DENY EX 86400`；UNBAN → `DEL` |
+| 示範 | `make demo-ban`、`make ban` / `make unban` |
+
+**封禁流程：**
+
+```
+Admin API: UPDATE employee.is_active
+    → Kafka permission-events
+    → cache-invalidation-worker
+    → Redis perm:denied:{userId}
+    → 下次 access-api 刷卡 → PERMISSION_DENIED
+```
+
+**注意：** `demo.sh` 第四步會先呼叫 Admin API 封禁 `00000000-...099`，再刷卡驗證；不再依賴 `seed-redis.sh` 寫入 deny key。
+
+### 3.5 刷卡機模擬器（`badge-reader-sim/`）
 
 - CLI：`go run ./cmd/sim`，支援 `--direction`、`--count`、`--interval` 壓測
 - 或根目錄：`make swipe` / `make swipe DIRECTION=OUT`
 
-### 3.5 與設計文件的對應
+### 3.6 Kafka → DB 鏈路驗證與自動化測試
+
+驗證 **Access API 發布 Kafka → Aggregation Worker 消費 → MariaDB `inout_events`** 整條非同步寫入路徑。
+
+| 方式 | 指令 | 前置條件 | 說明 |
+|------|------|----------|------|
+| Shell 腳本驗證 | `make verify-pipeline` | `make up` 後五個服務皆 Running | `scripts/verify-pipeline.sh`：清 passback → swipe → 輪詢 DB 比對 eventId / employee / direction / status |
+| Go 整合測試（Redis） | `make test-integration` | Docker（testcontainers 起 Redis） | **不需** compose 全堆疊；`swipe_test.go` 驗證反潛回 IN→IN→OUT |
+| Go 全鏈路 E2E | `make test-e2e-pipeline` | `make up` + 設 `E2E_PIPELINE=1` | `pipeline_e2e_test.go`：HTTP swipe → 直連 MariaDB 輪詢至 30s |
+| 單元測試 | `make test-unit` | 無 | `access_decision_test.go` 等，不依賴外部服務 |
+
+**驗證流程（`verify-pipeline` / E2E 共用邏輯）：**
+
+```
+POST /access/swipe (IN)
+    → access-api 回傳 eventId、decision
+    → Kafka topic inout-events
+    → aggregation-worker INSERT IGNORE inout_events
+    → 輪詢 MariaDB WHERE id = eventId（預設每 2s、最長 30s）
+    → 斷言 employee_id、direction、status 與 swipe 回應一致
+```
+
+**相關檔案：**
+
+| 檔案 | 用途 |
+|------|------|
+| `scripts/verify-pipeline.sh` | 手動／CI 友善的 Bash 鏈路驗證 |
+| `access-api/tests/integration/pipeline_e2e_test.go` | `TestPipelineE2E`（build tag `integration`） |
+| `access-api/tests/integration/swipe_test.go` | `TestSwipeIntegration`（testcontainers Redis） |
+| `access-api/internal/service/access_decision_test.go` | 決策邏輯單元測試 |
+| `Makefile` | `test-unit` / `test-integration` / `test-e2e-pipeline` / `verify-pipeline` |
+
+**可覆寫環境變數：**
+
+| 變數 | 預設 | 說明 |
+|------|------|------|
+| `API_URL` | `http://localhost:8080` | Access API 位址 |
+| `DB_DSN` | `access:access@tcp(127.0.0.1:3307)/access_control?parseTime=true` | E2E 連 MariaDB（本機對外埠 3307） |
+| `DEMO_USER` / `DEMO_DOOR` | 見 §6 測試 UUID | swipe 與 DB 比對用 |
+| `POLL_INTERVAL` / `POLL_TIMEOUT` | `2` / `30` | 僅 `verify-pipeline.sh` |
+| `E2E_PIPELINE` | — | 設為 `1` 時才執行 `TestPipelineE2E`（`make test-e2e-pipeline` 會自動帶入） |
+
+**失敗排查：** 事件逾時未入庫時，執行 `make logs` 查看 `aggregation-worker` 與 `kafka`；確認 `make up` 後 worker 已 Healthy。
+
+### 3.7 與設計文件的對應
 
 | 設計文件章節 | 實作情況 |
 |--------------|----------|
@@ -109,7 +187,8 @@ Distributed Physical Access Control System/
 | §4.1.4 Message Queue | 已實作 |
 | §6.1 Normal Badge-In Flow | 流程一致 |
 | §6.2 DB Down 仍開門 | Access API 不連 DB，已滿足 |
-| §7 API Design | 三個 Access 端點已實作 |
+| §7 API Design | Access 端點已實作 |
+| §4.1.3 Cache Invalidation | Admin API + Worker 已實作 |
 
 ---
 
@@ -120,9 +199,9 @@ Distributed Physical Access Control System/
 | 項目 | 設計文件位置 | 說明 |
 |------|--------------|------|
 | Report API | §4.2 Slow Path | 個人/部門/稽核報表，&lt;200ms 預聚合查詢 |
-| Admin 封禁/解封服務 | §4.1.3 | 目前僅能手動 `seed-redis.sh` 寫入 `perm:denied` |
-| Cache Invalidation Worker | §4.1.3 | 消費 `permission-events`，同步封禁至 Redis |
-| 員工/門禁/組織主資料 | §5 ER | 僅有 `inout_events` 表，無 `employee`、`door`、`org_unit` |
+| ~~Admin 封禁/解封服務~~ | §4.1.3 | **已完成**（`admin-api`） |
+| ~~Cache Invalidation Worker~~ | §4.1.3 | **已完成** |
+| 員工/門禁/組織主資料 | §5 ER | 已有 `employee`（demo seed）；尚無 `door`、`org_unit` 表與完整 ER |
 | `CARD_NOT_FOUND` | §7 Response | API 有定義 reason，**尚未實作** cardUid 查詢 |
 | Redis 掛掉時 DB fallback | §8 Resilience | 目前 Redis 不可用回 **503** |
 | `pre_aggregated_reports` 更新 | §4.1.5 Worker | Worker 僅 INSERT 原始事件，未做報表預聚合 |
@@ -147,16 +226,37 @@ Distributed Physical Access Control System/
 
 | 類型 | 指令 / 方式 | 內容 | 結果 |
 |------|-------------|------|------|
-| 單元測試 | `make test-unit` | `access_decision.go`：封禁、反潛回 IN/OUT、首次 IN、Redis 錯誤等 7 案例 | **通過** |
-| 本機編譯 | `go build` 三個模組 | access-api、aggregation-worker、badge-reader-sim | **通過** |
-| Docker 建置 | `make up` | 五個容器 Healthy + Started | **通過**（需 Docker Desktop 運行中） |
+| 單元測試 | `make test-unit` | access-api 決策、admin-api handler、cache-invalidation-worker Redis | **通過** |
+| 本機編譯 | `go build` 各模組 | access-api、admin-api、aggregation-worker、cache-invalidation-worker、badge-reader-sim | **通過** |
+| Docker 建置 | `make up` | 七個服務（含 admin-api、cache-invalidation-worker） | **通過**（需 Docker Desktop） |
 | 健康檢查 | `curl http://localhost:8080/health` | | `{"status":"ok"}` |
 | 手動驗收 | `make demo`（`scripts/demo.sh`） | ① IN→ALLOW ② 再 IN→DENY(ANTI_PASSBACK) ③ OUT→ALLOW ④ 封禁用戶→DENY(PERMISSION_DENIED) ⑤ 查 state / door | **通過** |
 | 模擬刷卡 | `make swipe` | 回傳 decision、eventId、latency | **通過**（例：latency ~17ms） |
 | 鏈路驗證 | `make verify-pipeline` | 單次 swipe → 輪詢 `inout_events` 依 eventId 斷言 | **通過**（~3s 內寫入 DB） |
 | Redis 整合測試 | `make test-integration` | testcontainers Redis + 反潛回 HTTP | **通過** |
 | 全鏈路 E2E | `make test-e2e-pipeline` | 對 compose 堆疊：swipe → MariaDB 查表 | **通過** |
+| Admin 封禁鏈路 | `make demo-ban` | ban → swipe DENY(PERMISSION_DENIED) → unban → ALLOW | **通過** |
 
+### 5.2 Kafka → DB 驗證與 E2E（執行順序建議）
+
+```bash
+# ① 啟動完整堆疊（含 Kafka、Worker、MariaDB）
+make up
+
+# ② Shell 鏈路驗證（適合示範／手動驗收）
+make verify-pipeline
+
+# ③ Go 全鏈路 E2E（CI 或回歸用；等同 E2E_PIPELINE=1 + integration tests）
+make test-e2e-pipeline
+
+# ④ 僅 Redis 反潛回（不需 make up，但需本機 Docker 給 testcontainers）
+make test-integration
+
+# ⑤ 決策邏輯單元測試（無外部依賴）
+make test-unit
+```
+
+`make test` 預設等同 `make test-unit`；完整 Kafka→DB 覆蓋需另跑 `verify-pipeline` 或 `test-e2e-pipeline`。
 
 ---
 
@@ -169,14 +269,16 @@ docker ps
 # 2. 進入專案根目錄
 cd "Distributed Physical Access Control System"
 
-# 3. 啟動（含 build + seed）
+# 3. 啟動（build + Kafka topics + migrate + seed）
 make up
 
 # 4. 驗收
-make demo
-make verify-pipeline
+make demo              # 反潛回 + Admin 封禁示範
+make demo-ban          # 封禁鏈路專用示範
+make verify-pipeline   # Kafka → MariaDB
 make swipe
 curl http://localhost:8080/health
+curl http://localhost:8081/health
 make test-unit
 make test-integration
 make test-e2e-pipeline
@@ -185,12 +287,19 @@ make test-e2e-pipeline
 make down
 ```
 
+**既有 DB volume 升級（不刪資料）：**
+
+```bash
+make migrate    # 套用 002_employee.sql
+make up         # 或僅 restart 相關服務
+```
+
 ### 測試用 UUID（`make seed` 後）
 
 | 角色 | UUID |
 |------|------|
 | 一般員工 | `22222222-2222-2222-2222-222222222222` |
-| 封禁員工 | `00000000-0000-0000-0000-000000000099` |
+| 封禁員工（DB `is_active=0`；Redis 需 `make ban`） | `00000000-0000-0000-0000-000000000099` |
 | 門禁 | `11111111-1111-1111-1111-111111111111` |
 
 ---
@@ -201,8 +310,11 @@ make down
 2. **MariaDB 對外埠為 3307**：本機若已佔用 3306，compose 已改映射；容器內服務仍用 `mariadb:3306`。
 3. **Kafka 映像**：使用 `apache/kafka:3.7.0`（原設計寫 bitnami，該 tag 已不可用）。
 4. **根目錄無 go.mod**：執行 Go 程式請 `cd badge-reader-sim` 等子目錄，或用 `make swipe`。
-5. **封禁流程為簡化版**：無 Admin API，需手動改 Redis 或擴充 `seed-redis.sh`。
-6. **設計文件 minor 差異**：Sequence 圖曾出現 `perm:{userId}:{doorId}`，實作採用較新的 **`perm:denied:{userId}`**（見 HTML §4.1.2）。
+5. **封禁流程**：使用 `make ban` / Admin API；`seed-redis.sh` 不再寫入 `perm:denied`。
+6. **升級 DB**：若已有 `mariadb_data` volume，請執行 `make migrate` 或 `make down -v` 後 `make up`。
+7. **Kafka topic 與 Worker**：`make up` 會 `init-kafka-topics` 並重啟 `cache-invalidation-worker`，避免 topic 尚未建立時 consumer 無法訂閱。
+8. **Admin API 重建**：修改 `admin-api` 後需 `docker compose up -d --build admin-api`，否則可能仍跑舊映像。
+9. **設計文件 minor 差異**：Sequence 圖曾出現 `perm:{userId}:{doorId}`，實作採用較新的 **`perm:denied:{userId}`**（見 HTML §4.1.2）。
 
 ---
 
@@ -211,9 +323,10 @@ make down
 1. ~~**補驗證**~~：已完成 — `make verify-pipeline`。
 2. ~~**補測試**~~：已完成 — `make test-integration`、`make test-e2e-pipeline`。
 3. **依課程評分**：架構圖、ER 圖、序列圖（可從 HTML 匯出或重畫）。
-4. **Phase 2 功能**（擇一或並行）：
+4. ~~**Phase 2 Admin 封禁**~~：已完成。
+5. **Phase 2 後續**：
    - Report API + `pre_aggregated_reports`
-   - Admin 封禁 + Cache Invalidation Worker + `permission-events` topic
+   - `CARD_NOT_FOUND`（`employee.card_uid` 查詢）
    - K8s manifests + HPA + Grafana
 
 ---
@@ -227,6 +340,13 @@ make down
 | Redis 操作 | `access-api/internal/cache/redis.go` |
 | Kafka 發布 | `access-api/internal/queue/kafka_producer.go` |
 | DB 寫入 | `aggregation-worker/internal/repository/inout.go` |
+| 封禁 API | `admin-api/internal/handler/admin.go` |
+| 員工 DB | `admin-api/internal/repository/employee.go`、`migrations/002_employee.sql` |
+| 權限事件發布 | `admin-api/internal/queue/kafka_producer.go` |
+| Redis 封禁同步 | `cache-invalidation-worker/internal/consumer/worker.go` |
+| Admin 示範腳本 | `scripts/demo-ban.sh` |
+| Kafka→DB 腳本驗證 | `scripts/verify-pipeline.sh` |
+| E2E / 整合測試 | `access-api/tests/integration/pipeline_e2e_test.go`、`swipe_test.go` |
 | 本地環境 | `docker-compose.yml`、`Makefile` |
 
 ---

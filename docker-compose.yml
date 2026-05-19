@@ -83,5 +83,37 @@ services:
       mariadb:
         condition: service_healthy
 
+  admin-api:
+    build:
+      context: ./admin-api
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      HTTP_ADDR: ":8081"
+      DB_DSN: access:access@tcp(mariadb:3306)/access_control?parseTime=true
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: permission-events
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+
+  cache-invalidation-worker:
+    build:
+      context: ./cache-invalidation-worker
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: permission-events
+      KAFKA_GROUP: cache-invalidation-workers
+      REDIS_ADDR: redis:6379
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   mariadb_data:

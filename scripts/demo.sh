@@ -2,9 +2,11 @@
 set -euo pipefail
 
 API="${API_URL:-http://localhost:8080}"
+ADMIN_API="${ADMIN_URL:-http://localhost:8081}"
 USER="${DEMO_USER:-22222222-2222-2222-2222-222222222222}"
 DOOR="${DEMO_DOOR:-11111111-1111-1111-1111-111111111111}"
 BANNED="${BANNED_USER:-00000000-0000-0000-0000-000000000099}"
+BAN_WAIT="${BAN_WAIT:-3}"
 
 swipe() {
   local user="$1" dir="$2"
@@ -30,6 +32,9 @@ swipe "$USER" "OUT"
 echo "Expected: ALLOW"
 echo
 
+echo ">>> Ban user via Admin API (then swipe)"
+curl -sf -X POST "${ADMIN_API}/admin/employees/${BANNED}/ban" | jq .
+sleep "$BAN_WAIT"
 swipe "$BANNED" "IN"
 echo "Expected: DENY (PERMISSION_DENIED)"
 echo
