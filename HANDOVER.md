@@ -28,7 +28,8 @@ Distributed Physical Access Control System/
 │   └── 001_inout_events.sql    # MariaDB 事件表 DDL
 ├── scripts/
 │   ├── seed-redis.sh           # 灌測試用 Redis 資料
-│   └── demo.sh                 # 反潛回 + 封禁示範（curl + jq）
+│   ├── demo.sh                 # 反潛回 + 封禁示範（curl + jq）
+│   └── verify-pipeline.sh      # Kafka → Worker → MariaDB 鏈路驗證
 ├── access-api/                 # Go：Access API（Gin）
 ├── aggregation-worker/         # Go：Kafka → MariaDB
 └── badge-reader-sim/           # Go CLI：模擬刷卡機
@@ -46,7 +47,7 @@ Distributed Physical Access Control System/
 |------|------|
 | Docker Compose | Redis、Kafka（apache/kafka:3.7.0）、MariaDB、access-api、aggregation-worker |
 | MariaDB 初始化 | `migrations/001_inout_events.sql` 自動建立 `inout_events` 表 |
-| Makefile | `make up` / `down` / `seed` / `demo` / `swipe` / `test-unit` |
+| Makefile | `make up` / `down` / `seed` / `demo` / `swipe` / `verify-pipeline` / `test-unit` / `test-integration` / `test-e2e-pipeline` |
 | 測試資料腳本 | `seed-redis.sh`（支援本機無 redis-cli 時改走 `docker compose exec`） |
 
 **埠號（本機）：**
@@ -112,7 +113,7 @@ Distributed Physical Access Control System/
 
 ---
 
-## 4. 尚未完成項目（建議後續 Phase）
+## 4. 尚未完成項目
 
 ### 4.1 業務功能
 
@@ -136,12 +137,7 @@ Distributed Physical Access Control System/
 | 告警規則 | `access_api_p99_latency_ms` 等閾值未配置 |
 | CI/CD、SonarQube | 評分項目，未設置 |
 
-### 4.3 文件與作業
 
-| 項目 | 說明 |
-|------|------|
-| `Cloud_HW2-1.pdf` | 作業 PDF **未放入 repo**，若有額外繳交要求請自行對齊 |
-| 正式 ER / Sequence / 部署圖 | 需依課程要求補交 |
 
 ---
 
@@ -157,10 +153,14 @@ Distributed Physical Access Control System/
 | 健康檢查 | `curl http://localhost:8080/health` | | `{"status":"ok"}` |
 | 手動驗收 | `make demo`（`scripts/demo.sh`） | ① IN→ALLOW ② 再 IN→DENY(ANTI_PASSBACK) ③ OUT→ALLOW ④ 封禁用戶→DENY(PERMISSION_DENIED) ⑤ 查 state / door | **通過** |
 | 模擬刷卡 | `make swipe` | 回傳 decision、eventId、latency | **通過**（例：latency ~17ms） |
+| 鏈路驗證 | `make verify-pipeline` | 單次 swipe → 輪詢 `inout_events` 依 eventId 斷言 | **通過**（~3s 內寫入 DB） |
+| Redis 整合測試 | `make test-integration` | testcontainers Redis + 反潛回 HTTP | **通過** |
+| 全鏈路 E2E | `make test-e2e-pipeline` | 對 compose 堆疊：swipe → MariaDB 查表 | **通過** |
+
 
 ---
 
-## 6. 快速啟動（給接手者）
+## 6. 快速啟動
 
 ```bash
 # 1. 確認 Docker 運行
@@ -174,8 +174,12 @@ make up
 
 # 4. 驗收
 make demo
+make verify-pipeline
 make swipe
 curl http://localhost:8080/health
+make test-unit
+make test-integration
+make test-e2e-pipeline
 
 # 5. 關閉並清資料
 make down
@@ -204,8 +208,8 @@ make down
 
 ## 8. 建議接手優先順序
 
-1. **補驗證**：`make demo` + 查 `inout_events` 確認 Kafka → Worker → DB 鏈路。
-2. **補測試**：跑通 `make test-integration`；可選補 Kafka/DB 整合測試。
+1. ~~**補驗證**~~：已完成 — `make verify-pipeline`。
+2. ~~**補測試**~~：已完成 — `make test-integration`、`make test-e2e-pipeline`。
 3. **依課程評分**：架構圖、ER 圖、序列圖（可從 HTML 匯出或重畫）。
 4. **Phase 2 功能**（擇一或並行）：
    - Report API + `pre_aggregated_reports`

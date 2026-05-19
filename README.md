@@ -10,14 +10,25 @@ TSMC Cloud Native 2026 — Access Fast Path (刷卡機 / Badge Reader)
 - **aggregation-worker**: Persists events to MariaDB
 - **badge-reader-sim**: CLI simulator for badge swipes
 
+## Git commits (avoid Cursor on Contributors)
+
+After clone, run once:
+
+```bash
+make hooks
+```
+
+This installs `.githooks/` so any `Co-authored-by: Cursor <cursoragent@cursor.com>` line is removed before the commit is created. When committing manually, use plain `git commit -m "..."` (do not use `--trailer` for Cursor).
+
 ## Quick Start
 
 **Prerequisite:** Docker Desktop must be running (`docker ps` should succeed).
 
 ```bash
-make up      # docker compose up + seed Redis
-make demo    # run anti-passback demo script
-make down    # tear down
+make up              # docker compose up + seed Redis
+make demo            # run anti-passback demo script
+make verify-pipeline # confirm swipe event reaches MariaDB via Kafka
+make down            # tear down
 ```
 
 If you see `Cannot connect to the Docker daemon`, open **Docker Desktop** and wait until it is ready, then run `make up` again.
@@ -67,7 +78,9 @@ cd badge-reader-sim && go run ./cmd/sim --count 100 --interval 50ms
 
 ```bash
 make test-unit
-make test-integration   # requires Docker
+make test-integration      # Redis testcontainers (no compose stack required)
+make test-e2e-pipeline       # full Kafka→DB path (requires make up)
+make verify-pipeline       # shell script: swipe + poll MariaDB
 ```
 
 ## Demo UUIDs (after `make seed`)

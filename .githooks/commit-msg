@@ -1,0 +1,9 @@
+#!/bin/sh
+# Strip Cursor co-author trailers so GitHub Contributors stays author-only.
+msg_file=$1
+[ -f "$msg_file" ] || exit 0
+
+tmp=$(mktemp) || exit 0
+grep -viE '^co-authored-by:.*cursor.*cursoragent@cursor\.com' "$msg_file" >"$tmp"
+mv "$tmp" "$msg_file"
+exit 0

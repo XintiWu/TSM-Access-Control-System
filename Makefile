@@ -1,4 +1,10 @@
-.PHONY: up down build seed demo swipe swipe-demo test test-unit test-integration
+.PHONY: up down build seed demo swipe swipe-demo test test-unit test-integration test-e2e-pipeline verify-pipeline hooks
+
+# Install repo git hooks (strips Cursor Co-authored-by from commits)
+hooks:
+	git config core.hooksPath .githooks
+	chmod +x .githooks/commit-msg .githooks/prepare-commit-msg
+	@echo "Git hooks installed: .githooks (Cursor co-author will be removed)"
 
 COMPOSE = docker compose
 
@@ -36,6 +42,13 @@ test-unit:
 
 test-integration:
 	cd access-api/tests/integration && go mod tidy && go test -tags=integration . -count=1 -timeout=5m
+
+test-e2e-pipeline:
+	E2E_PIPELINE=1 $(MAKE) test-integration
+
+verify-pipeline:
+	@chmod +x scripts/verify-pipeline.sh scripts/demo.sh scripts/seed-redis.sh
+	@./scripts/verify-pipeline.sh
 
 logs:
 	$(COMPOSE) logs -f access-api aggregation-worker
