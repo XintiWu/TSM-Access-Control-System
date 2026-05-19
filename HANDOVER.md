@@ -2,8 +2,6 @@
 
 **交接日期：** 2026-05-19  
 **範圍：** Phase 1 — Access Fast Path（刷卡機 / 門禁決策路徑）  
-**設計依據：** [`docs/TSM Access Control System.html`](TSM%20Access%20Control%20System.html)（Mike Tsai 架構說明）
-
 ---
 
 ## 1. 專案目標（簡述）
@@ -25,7 +23,7 @@
 Distributed Physical Access Control System/
 ├── docker-compose.yml          # 本地一鍵啟動全部服務
 ├── Makefile                    # up / down / seed / demo / swipe / test
-├── README.md                   # 快速上手指南
+├── README.md                   
 ├── migrations/
 │   └── 001_inout_events.sql    # MariaDB 事件表 DDL
 ├── scripts/
