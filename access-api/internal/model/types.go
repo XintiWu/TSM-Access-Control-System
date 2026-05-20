@@ -19,8 +19,9 @@ const (
 type DenyReason string
 
 const (
-	ReasonAntiPassback      DenyReason = "ANTI_PASSBACK"
-	ReasonPermissionDenied  DenyReason = "PERMISSION_DENIED"
+	ReasonAntiPassback     DenyReason = "ANTI_PASSBACK"
+	ReasonPermissionDenied DenyReason = "PERMISSION_DENIED"
+	ReasonCardNotFound     DenyReason = "CARD_NOT_FOUND"
 )
 
 type PassbackState string

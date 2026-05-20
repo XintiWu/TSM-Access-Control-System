@@ -62,10 +62,13 @@ services:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: inout-events
+      DB_DSN: access:access@tcp(mariadb:3306)/access_control?parseTime=true
     depends_on:
       redis:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      mariadb:
         condition: service_healthy
 
   aggregation-worker:

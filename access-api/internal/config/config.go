@@ -10,6 +10,7 @@ type Config struct {
 	RedisAddr    string
 	KafkaBrokers []string
 	KafkaTopic   string
+	DBDSN        string // optional — enables fallback when Redis is down
 }
 
 func Load() Config {
@@ -29,10 +30,13 @@ func Load() Config {
 	if redis == "" {
 		redis = "localhost:6379"
 	}
+	dbDSN := os.Getenv("DB_DSN") // empty = no DB fallback
 	return Config{
 		HTTPAddr:     addr,
 		RedisAddr:    redis,
 		KafkaBrokers: strings.Split(brokers, ","),
 		KafkaTopic:   topic,
+		DBDSN:        dbDSN,
 	}
 }
+
