@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -96,7 +97,9 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 		SourceIP:   c.ClientIP(),
 	}
 	go func() {
-		if err := h.publisher.Publish(c.Request.Context(), event); err != nil {
+		publishCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := h.publisher.Publish(publishCtx, event); err != nil {
 			log.Printf("async publish eventId=%s: %v", eventID, err)
 		}
 	}()

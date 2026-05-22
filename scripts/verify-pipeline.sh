@@ -18,7 +18,7 @@ require_service() {
 echo "=== Kafka → DB pipeline verification ==="
 echo
 
-for svc in access-api kafka aggregation-worker mariadb redis; do
+for svc in access-api kafka aggregation-worker mariadb redis clickhouse; do
   require_service "$svc"
 done
 echo "Docker services OK"
@@ -50,15 +50,16 @@ if [[ -z "$EVENT_ID" || "$EVENT_ID" == "null" ]]; then
   exit 1
 fi
 
-db_query() {
-  docker compose exec -T mariadb mariadb -uaccess -paccess access_control -N -B -e "$1" 2>/dev/null
+ch_query() {
+  docker compose exec -T clickhouse clickhouse-client --password password123 --database=access_control --query="$1" 2>/dev/null
 }
 
-echo "Polling MariaDB for eventId=${EVENT_ID} (timeout ${POLL_TIMEOUT}s)..."
+echo "Polling ClickHouse for eventId=${EVENT_ID} (timeout ${POLL_TIMEOUT}s)..."
 elapsed=0
 ROW=""
 while [[ "$elapsed" -lt "$POLL_TIMEOUT" ]]; do
-  ROW=$(db_query "SELECT id, employee_id, direction, status, IFNULL(reason,'') FROM inout_events WHERE id='${EVENT_ID}';" || true)
+  ROW=$(ch_query "SELECT id, employee_id, direction, status, ifNull(reason,'') FROM inout_events WHERE id='${EVENT_ID}'" || true)
+  ROW=$(echo "$ROW" | tr -d '\r')
   if [[ -n "$ROW" ]]; then
     break
   fi
@@ -67,7 +68,7 @@ while [[ "$elapsed" -lt "$POLL_TIMEOUT" ]]; do
 done
 
 if [[ -z "$ROW" ]]; then
-  echo "ERROR: event not found in inout_events after ${POLL_TIMEOUT}s" >&2
+  echo "ERROR: event not found in ClickHouse inout_events after ${POLL_TIMEOUT}s" >&2
   echo "Hint: check worker logs with 'make logs'" >&2
   exit 1
 fi
@@ -96,7 +97,7 @@ if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi
 
-echo "PASS: event persisted to MariaDB"
+echo "PASS: event persisted to ClickHouse"
 echo "  id=${db_id} employee_id=${db_employee} direction=${db_direction} status=${db_status} reason=${db_reason:-<none>}"
 echo
 echo "=== Pipeline verification complete ==="

@@ -19,7 +19,7 @@ func main() {
 	var repo *repository.InOutRepository
 	var err error
 	for i := 0; i < 30; i++ {
-		repo, err = repository.NewInOutRepository(cfg.DBDSN)
+		repo, err = repository.NewInOutRepository(cfg.DBDSN, cfg.ClickHouseAddr, cfg.ClickHouseUser, cfg.ClickHousePass)
 		if err == nil {
 			break
 		}
