@@ -14,3 +14,12 @@ access-api/access-api
 aggregation-worker/aggregation-worker
 
 exports/
+
+# Local docs and generated report artifacts (not published)
+DEMO.md
+HANDOVER.md
+report_demo.csv
+report_demo.pdf
+report_demo_ceo.pdf
+report_export.pdf
+report.csv
