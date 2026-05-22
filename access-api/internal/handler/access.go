@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -26,6 +28,11 @@ var (
 		Help:    "Swipe handler latency in milliseconds",
 		Buckets: prometheus.ExponentialBuckets(1, 2, 12),
 	})
+
+	requestTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "access_api_requests_total",
+		Help: "Total HTTP requests by endpoint and status",
+	}, []string{"endpoint", "status"})
 )
 
 type AccessHandler struct {
@@ -46,6 +53,7 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 
 	var req model.SwipeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		requestTotal.WithLabelValues("swipe", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -54,10 +62,20 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 	}
 
 	eventID := uuid.New().String()
-	result, err := h.decisions.Evaluate(c.Request.Context(), req.UserID, req.Direction)
+	result, err := h.decisions.Evaluate(c.Request.Context(), req.UserID, req.CardUID, req.Direction)
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "cache unavailable"})
+		if errors.Is(err, service.ErrCacheUnavailable) {
+			requestTotal.WithLabelValues("swipe", "503").Inc()
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "cache unavailable"})
+			return
+		}
+		requestTotal.WithLabelValues("swipe", "503").Inc()
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "service unavailable"})
 		return
+	}
+
+	if result.Degraded {
+		log.Printf("swipe decision degraded (DB fallback) eventId=%s userId=%s", eventID, req.UserID)
 	}
 
 	reasonLabel := "none"
@@ -65,6 +83,7 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 		reasonLabel = string(*result.Reason)
 	}
 	swipeTotal.WithLabelValues(string(result.Decision), reasonLabel).Inc()
+	requestTotal.WithLabelValues("swipe", "200").Inc()
 
 	event := model.InOutEvent{
 		EventID:    eventID,
@@ -78,7 +97,9 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 		SourceIP:   c.ClientIP(),
 	}
 	go func() {
-		if err := h.publisher.Publish(c.Request.Context(), event); err != nil {
+		publishCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := h.publisher.Publish(publishCtx, event); err != nil {
 			log.Printf("async publish eventId=%s: %v", eventID, err)
 		}
 	}()
@@ -93,27 +114,33 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 func (h *AccessHandler) EmployeeState(c *gin.Context) {
 	userID := c.Param("userId")
 	if _, err := uuid.Parse(userID); err != nil {
+		requestTotal.WithLabelValues("employee_state", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid userId"})
 		return
 	}
 	state, err := h.cache.GetPassback(c.Request.Context(), userID)
 	if err != nil {
+		requestTotal.WithLabelValues("employee_state", "503").Inc()
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "cache unavailable"})
 		return
 	}
+	requestTotal.WithLabelValues("employee_state", "200").Inc()
 	c.JSON(http.StatusOK, model.EmployeeStateResponse{UserID: userID, State: state})
 }
 
 func (h *AccessHandler) DoorStatus(c *gin.Context) {
 	doorID := c.Param("doorId")
 	if _, err := uuid.Parse(doorID); err != nil {
+		requestTotal.WithLabelValues("door_status", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid doorId"})
 		return
 	}
 	status, err := h.cache.GetDoorStatus(c.Request.Context(), doorID)
 	if err != nil {
+		requestTotal.WithLabelValues("door_status", "503").Inc()
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "cache unavailable"})
 		return
 	}
+	requestTotal.WithLabelValues("door_status", "200").Inc()
 	c.JSON(http.StatusOK, model.DoorStatusResponse{DoorID: doorID, Status: status})
 }

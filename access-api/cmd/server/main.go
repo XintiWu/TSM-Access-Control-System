@@ -15,6 +15,7 @@ import (
 	"github.com/tsmc/access-api/internal/config"
 	"github.com/tsmc/access-api/internal/handler"
 	"github.com/tsmc/access-api/internal/queue"
+	"github.com/tsmc/access-api/internal/repository"
 	"github.com/tsmc/access-api/internal/service"
 )
 
@@ -32,6 +33,19 @@ func main() {
 	defer publisher.Close()
 
 	decisions := service.NewAccessDecisionService(redisCache)
+
+	// Optional: DB fallback for when Redis is unavailable (§8 Resilience)
+	if cfg.DBDSN != "" {
+		repo, err := repository.NewEmployeeRepository(cfg.DBDSN)
+		if err != nil {
+			log.Printf("WARNING: DB fallback disabled — cannot connect to MariaDB: %v", err)
+		} else {
+			decisions.SetDBFallback(repo)
+			defer repo.Close()
+			log.Printf("DB fallback enabled for Redis-down resilience")
+		}
+	}
+
 	accessHandler := handler.NewAccessHandler(decisions, redisCache, publisher)
 
 	gin.SetMode(gin.ReleaseMode)

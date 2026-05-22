@@ -58,6 +58,7 @@ func TestSwipeIntegration(t *testing.T) {
 
 	client := redis.NewClient(&redis.Options{Addr: addr})
 	_ = client.Del(context.Background(), "passback:"+userID).Err()
+	_ = client.Set(context.Background(), "card:CARD001", userID, 0).Err()
 
 	swipe := func(dir string) model.SwipeResponse {
 		body, _ := json.Marshal(map[string]interface{}{

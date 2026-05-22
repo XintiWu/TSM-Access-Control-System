@@ -1,4 +1,4 @@
-.PHONY: up down build seed migrate demo demo-ban swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo
+.PHONY: up down build seed migrate demo demo-ban demo-report swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo
 
 # Install repo git hooks (strips Cursor Co-authored-by from commits)
 hooks:
@@ -37,6 +37,12 @@ migrate:
 	@test -f migrations/002_employee.sql
 	$(COMPOSE) exec -T mariadb mariadb -uaccess -paccess access_control < migrations/002_employee.sql
 	@echo "Migration 002 applied"
+	@test -f migrations/003_org_unit.sql
+	$(COMPOSE) exec -T mariadb mariadb -uaccess -paccess access_control < migrations/003_org_unit.sql
+	@echo "Migration 003 applied"
+	@test -f migrations/004_pre_aggregated_reports.sql
+	$(COMPOSE) exec -T mariadb mariadb -uaccess -paccess access_control < migrations/004_pre_aggregated_reports.sql
+	@echo "Migration 004 applied"
 
 seed:
 	@chmod +x scripts/seed-redis.sh scripts/demo.sh scripts/demo-ban.sh scripts/verify-pipeline.sh
@@ -68,6 +74,7 @@ test-unit:
 	cd access-api && go test ./...
 	cd admin-api && go test ./...
 	cd cache-invalidation-worker && go test ./...
+	cd report-api && go test ./...
 
 test-integration:
 	cd access-api/tests/integration && go mod tidy && go test -tags=integration . -count=1 -timeout=5m
@@ -78,8 +85,11 @@ test-e2e-pipeline:
 verify-pipeline:
 	@./scripts/verify-pipeline.sh
 
+demo-report:
+	@./scripts/demo-report.sh
+
 logs:
-	$(COMPOSE) logs -f access-api admin-api aggregation-worker cache-invalidation-worker
+	$(COMPOSE) logs -f access-api admin-api aggregation-worker cache-invalidation-worker report-api
 
 # Generate traffic spike for Grafana dashboard demo
 LOAD_COUNT ?= 200

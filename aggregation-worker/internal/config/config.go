@@ -6,10 +6,13 @@ import (
 )
 
 type Config struct {
-	KafkaBrokers []string
-	KafkaTopic   string
-	KafkaGroup   string
-	DBDSN        string
+	KafkaBrokers   []string
+	KafkaTopic     string
+	KafkaGroup     string
+	DBDSN          string
+	ClickHouseAddr string
+	ClickHouseUser string
+	ClickHousePass string
 }
 
 func Load() Config {
@@ -29,10 +32,23 @@ func Load() Config {
 	if dsn == "" {
 		dsn = "access:access@tcp(localhost:3306)/access_control?parseTime=true"
 	}
+	chAddr := os.Getenv("CLICKHOUSE_ADDR")
+	if chAddr == "" {
+		chAddr = "localhost:9000"
+	}
+	chUser := os.Getenv("CLICKHOUSE_USER")
+	if chUser == "" {
+		chUser = "default"
+	}
+	chPass := os.Getenv("CLICKHOUSE_PASSWORD")
 	return Config{
-		KafkaBrokers: strings.Split(brokers, ","),
-		KafkaTopic:   topic,
-		KafkaGroup:   group,
-		DBDSN:        dsn,
+		KafkaBrokers:   strings.Split(brokers, ","),
+		KafkaTopic:     topic,
+		KafkaGroup:     group,
+		DBDSN:          dsn,
+		ClickHouseAddr: chAddr,
+		ClickHouseUser: chUser,
+		ClickHousePass: chPass,
 	}
 }
+

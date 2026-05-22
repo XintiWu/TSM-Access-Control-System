@@ -32,17 +32,20 @@ func NewWorker(brokers []string, topic, group string, repo *repository.InOutRepo
 }
 
 func (w *Worker) Run(ctx context.Context) error {
-	log.Printf("aggregation worker started")
+	log.Printf("aggregation worker started and listening")
 	for {
+		log.Printf("waiting for message...")
 		msg, err := w.reader.FetchMessage(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
+				log.Printf("worker context canceled, exiting Run")
 				return nil
 			}
 			log.Printf("fetch error: %v", err)
 			time.Sleep(time.Second)
 			continue
 		}
+		log.Printf("fetched message from partition %d, offset %d: %s", msg.Partition, msg.Offset, string(msg.Value))
 
 		var event model.InOutEvent
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
@@ -51,16 +54,28 @@ func (w *Worker) Run(ctx context.Context) error {
 			continue
 		}
 
+		// Fetch employee's org_unit_id from MariaDB to enrich the ClickHouse event
+		orgLookupCtx, orgLookupCancel := context.WithTimeout(ctx, 5*time.Second)
+		orgUnitID, err := w.repo.GetEmployeeOrgUnitID(orgLookupCtx, event.EmployeeID)
+		if err != nil {
+			log.Printf("org lookup failed eventId=%s: %v", event.EventID, err)
+		}
+		orgLookupCancel()
+		log.Printf("org lookup for employee %s returned orgUnitID %s", event.EmployeeID, orgUnitID)
+
 		insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		if err := w.repo.Insert(insertCtx, event); err != nil {
+		if err := w.repo.Insert(insertCtx, event, orgUnitID); err != nil {
 			cancel()
 			log.Printf("insert failed eventId=%s: %v", event.EventID, err)
 			continue
 		}
 		cancel()
+		log.Printf("successfully inserted eventId=%s into ClickHouse", event.EventID)
 
 		if err := w.reader.CommitMessages(ctx, msg); err != nil {
 			log.Printf("commit failed: %v", err)
+		} else {
+			log.Printf("committed message eventId=%s", event.EventID)
 		}
 	}
 }

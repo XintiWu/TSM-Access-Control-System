@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestPipelineE2E(t *testing.T) {
@@ -21,7 +21,7 @@ func TestPipelineE2E(t *testing.T) {
 	}
 
 	apiURL := envOr("API_URL", "http://localhost:8080")
-	dsn := envOr("DB_DSN", "access:access@tcp(127.0.0.1:3307)/access_control?parseTime=true")
+	chDSN := envOr("CH_DSN", "clickhouse://default:password123@127.0.0.1:9000/access_control")
 	userID := envOr("DEMO_USER", "22222222-2222-2222-2222-222222222222")
 	doorID := envOr("DEMO_DOOR", "11111111-1111-1111-1111-111111111111")
 
@@ -41,13 +41,13 @@ func TestPipelineE2E(t *testing.T) {
 		t.Fatalf("health check status %d", resp.StatusCode)
 	}
 
-	db, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("clickhouse", chDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 	if err := db.PingContext(ctx); err != nil {
-		t.Fatalf("mariadb not reachable: %v", err)
+		t.Fatalf("clickhouse not reachable: %v", err)
 	}
 
 	body, _ := json.Marshal(map[string]interface{}{
@@ -92,7 +92,7 @@ func TestPipelineE2E(t *testing.T) {
 	)
 	for time.Now().Before(deadline) {
 		row := db.QueryRowContext(ctx, `
-			SELECT employee_id, direction, status
+			SELECT toString(employee_id), toString(direction), toString(status)
 			FROM inout_events WHERE id = ?`, swipe.EventID)
 		err = row.Scan(&employeeID, &direction, &status)
 		if err == nil {
@@ -105,7 +105,7 @@ func TestPipelineE2E(t *testing.T) {
 	}
 
 	if employeeID == "" {
-		t.Fatalf("event %s not found in inout_events within 30s", swipe.EventID)
+		t.Fatalf("event %s not found in ClickHouse inout_events within 30s", swipe.EventID)
 	}
 	if employeeID != userID {
 		t.Fatalf("employee_id: got %s want %s", employeeID, userID)
