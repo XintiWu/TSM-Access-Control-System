@@ -223,10 +223,15 @@
     </section>
 
     <div class="links card">
-      <strong>其他輸出</strong>：同身份可下載
-      <a id="linkCsv" href="#">CSV 事件稽核</a> ·
-      <a id="linkPdf" href="#">PDF 部門報表</a>
-      · Grafana 進階監控：<a href="http://localhost:3001" target="_blank">localhost:3001</a> → 資料夾 <em>Access Control</em> → <em>Access Analytics</em>
+      <strong>其他輸出</strong>（依上方身份 <code>X-User-ID</code>，後端會驗證權限）
+      <span id="exportRoleHint" class="hint"></span><br>
+      <span id="exportMgrLinks">
+        <a id="linkCsv" href="#">CSV 事件稽核</a> ·
+        <a id="linkPdfDept" href="#">PDF 部門報表（含圖表）</a> ·
+      </span>
+      <a id="linkPdfPersonal" href="#">PDF 個人出勤</a>
+      · Grafana：<a href="http://localhost:3001" target="_blank">localhost:3001</a> → <em>Access Analytics</em>
+      <div id="exportErr" class="err"></div>
     </div>
   </main>
 
@@ -544,25 +549,79 @@
       }
     }
 
+    function orgSlugForFilename() {
+      const orgId = document.getElementById('orgSelect').value;
+      const opt = document.getElementById('orgSelect').selectedOptions[0];
+      const name = opt ? opt.textContent : orgId;
+      return name.replace(/[^\w\u4e00-\u9fff-]+/g, '-').replace(/-+/g, '-').slice(0, 40) || orgId.slice(0, 8);
+    }
+
+    function fallbackFilename(linkId, role, s, end) {
+      const scope = role === 'EMPLOYEE' ? `${role}_personal` : `${role}_${orgSlugForFilename()}`;
+      if (linkId === 'linkCsv') return `access-report_${scope}_events_${s}-${end}.csv`;
+      if (linkId === 'linkPdfDept') return `access-report_${scope}_department_${s}-${end}.pdf`;
+      return `access-report_${scope}_personal_${s}-${end}.pdf`;
+    }
+
+    function parseContentDisposition(header) {
+      if (!header) return null;
+      const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(header);
+      return m ? m[1].trim() : null;
+    }
+
+    async function downloadExport(ev, linkId) {
+      ev.preventDefault();
+      const errEl = document.getElementById('exportErr');
+      errEl.textContent = '';
+      const { userId, role } = selectedRole();
+      const s = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+      const href = document.getElementById(linkId).href;
+      try {
+        const res = await fetch(href, { headers: { 'X-User-ID': userId } });
+        if (!res.ok) {
+          const text = await res.text();
+          let msg = text;
+          try { msg = JSON.parse(text).error || text; } catch (_) {}
+          throw new Error(msg);
+        }
+        const blob = await res.blob();
+        const name = parseContentDisposition(res.headers.get('Content-Disposition'))
+          || fallbackFilename(linkId, role, s, end);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) {
+        errEl.textContent = e.message || String(e);
+      }
+    }
+
     function updateExportLinks() {
-      const { userId } = selectedRole();
+      const { role } = selectedRole();
       const org = document.getElementById('orgSelect').value;
       const s = document.getElementById('startDate').value;
       const e = document.getElementById('endDate').value;
-      const q = `orgUnitId=${org}&startDate=${s}&endDate=${e}`;
-      document.getElementById('linkCsv').href = `${API}/reports/export?${q}&format=csv&type=events`;
-      document.getElementById('linkPdf').href = `${API}/reports/export?${q}&format=pdf&type=department`;
-      document.getElementById('linkCsv').onclick = document.getElementById('linkPdf').onclick = (ev) => {
-        ev.preventDefault();
-        fetch(ev.target.href, { headers: { 'X-User-ID': userId } })
-          .then(r => r.blob())
-          .then(b => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(b);
-            a.download = ev.target.id === 'linkCsv' ? 'report.csv' : 'report.pdf';
-            a.click();
-          });
-      };
+      const gran = document.getElementById('granularity').value;
+      const base = `startDate=${s}&endDate=${e}`;
+      const deptQ = `${base}&orgUnitId=${org}&granularity=${gran}`;
+      const isEmployee = role === 'EMPLOYEE';
+
+      document.getElementById('exportMgrLinks').classList.toggle('hidden', isEmployee);
+      document.getElementById('linkCsv').href = `${API}/reports/export?${deptQ}&format=csv&type=events`;
+      document.getElementById('linkPdfDept').href = `${API}/reports/export?${deptQ}&format=pdf&type=department`;
+      document.getElementById('linkPdfPersonal').href = `${API}/reports/export?${base}&format=pdf&type=personal`;
+
+      const hint = document.getElementById('exportRoleHint');
+      hint.textContent = isEmployee
+        ? `目前：${role} — 僅可下載本人 PDF。`
+        : `目前：${role} — 部門/CSV 依所選組織；個人 PDF 為本人出勤。`;
+
+      ['linkCsv', 'linkPdfDept', 'linkPdfPersonal'].forEach(id => {
+        const el = document.getElementById(id);
+        el.onclick = (ev) => downloadExport(ev, id);
+      });
     }
 
     async function refreshAll() {

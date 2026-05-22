@@ -13,16 +13,40 @@ import (
 const chartWidth = 680
 const chartHeight = 280
 
-var yAxisFromZero = chart.YAxis{
-	Range: &chart.ContinuousRange{Min: 0},
-}
-
 func yAxisFromZeroTo(maxVal float64) chart.YAxis {
 	max := maxVal * 1.25
 	if max < 1 {
 		max = 1
 	}
 	return chart.YAxis{Range: &chart.ContinuousRange{Min: 0, Max: max}}
+}
+
+func maxBarValue(bars []chart.Value) float64 {
+	var max float64
+	for _, b := range bars {
+		if b.Value > max {
+			max = b.Value
+		}
+	}
+	return max
+}
+
+func yAxisForBars(bars []chart.Value) chart.YAxis {
+	return yAxisFromZeroTo(maxBarValue(bars))
+}
+
+func maxFloat64(vals []float64) float64 {
+	var max float64
+	for _, v := range vals {
+		if v > max {
+			max = v
+		}
+	}
+	return max
+}
+
+func yAxisForSeries(vals []float64) chart.YAxis {
+	return yAxisFromZeroTo(maxFloat64(vals))
 }
 
 func renderBarPNG(bar chart.BarChart) ([]byte, error) {
@@ -50,12 +74,13 @@ func chartIndexed(n int) []float64 {
 }
 
 func emptyChartPNG(msg string) ([]byte, error) {
+	bars := []chart.Value{{Label: "—", Value: 0}}
 	graph := chart.BarChart{
 		Title:  msg,
 		Width:  chartWidth,
 		Height: chartHeight,
-		YAxis:  yAxisFromZero,
-		Bars:   []chart.Value{{Label: "—", Value: 0}},
+		YAxis:  yAxisForBars(bars),
+		Bars:   bars,
 	}
 	return renderBarPNG(graph)
 }
@@ -82,7 +107,7 @@ func DoorHeatmapChartPNG(resp *model.DoorHeatmapResponse) ([]byte, error) {
 		Background: chart.Style{Padding: chart.Box{Top: 36, Left: 24, Right: 24, Bottom: 24}},
 		Width:      chartWidth,
 		Height:     chartHeight,
-		YAxis:      yAxisFromZero,
+		YAxis:      yAxisForBars(bars),
 		Bars:       bars,
 	}
 	return renderBarPNG(graph)
@@ -110,7 +135,7 @@ func SubUnitsComparisonChartPNG(resp *model.DepartmentReportResponse) ([]byte, e
 		Background: chart.Style{Padding: chart.Box{Top: 36, Left: 24, Right: 24, Bottom: 24}},
 		Width:      chartWidth,
 		Height:     chartHeight,
-		YAxis:      yAxisFromZero,
+		YAxis:      yAxisForBars(bars),
 		Bars:       bars,
 	}
 	return renderBarPNG(graph)
@@ -145,7 +170,7 @@ func DepartmentEntriesChartPNG(resp *model.DepartmentReportResponse) ([]byte, er
 		Background: chart.Style{Padding: chart.Box{Top: 36, Left: 24, Right: 24, Bottom: 24}},
 		Width:      chartWidth,
 		Height:     chartHeight,
-		YAxis:      yAxisFromZero,
+		YAxis:      yAxisForBars(bars),
 		Bars:       bars,
 	}
 	return renderBarPNG(graph)
@@ -188,7 +213,7 @@ func DepartmentHoursChartPNG(resp *model.DepartmentReportResponse) ([]byte, erro
 		Background: chart.Style{Padding: chart.Box{Top: 36, Left: 20, Right: 20, Bottom: 20}},
 		Width:      chartWidth,
 		Height:     chartHeight,
-		YAxis:      yAxisFromZero,
+		YAxis:      yAxisForSeries(y),
 		Series: []chart.Series{
 			chart.ContinuousSeries{
 				Name:    "Hours",
@@ -276,7 +301,7 @@ func AttendanceHoursChartPNG(resp *model.AttendanceTrendsResponse) ([]byte, erro
 		Background: chart.Style{Padding: chart.Box{Top: 36, Left: 20, Right: 20, Bottom: 20}},
 		Width:      chartWidth,
 		Height:     chartHeight,
-		YAxis:      yAxisFromZero,
+		YAxis:      yAxisForSeries(y),
 		Series: []chart.Series{
 			chart.ContinuousSeries{
 				Name:    "Avg Hours",

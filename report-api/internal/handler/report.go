@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -210,7 +211,7 @@ func (h *ReportHandler) Export(c *gin.Context) {
 		return
 	}
 
-	filename := fmt.Sprintf("access-report-%s-%s-%s%s", reportType, req.StartDate, req.EndDate, ext)
+	filename := h.exportFilename(c.Request.Context(), reportType, req, role, req.OrgUnitID, ext)
 	if req.Format == "pdf" {
 		c.Header("Content-Type", "application/pdf")
 	} else {
@@ -399,5 +400,34 @@ func (h *ReportHandler) WorkforceUtilization(c *gin.Context) {
 	}
 	requestTotal.WithLabelValues("workforce_utilization", "200").Inc()
 	c.JSON(http.StatusOK, resp)
+}
+
+func sanitizeExportSlug(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == ' ', r == '-', r == '_', r == '.':
+			b.WriteByte('-')
+		}
+	}
+	out := strings.Trim(b.String(), "-")
+	if out == "" {
+		return "org"
+	}
+	return out
+}
+
+func (h *ReportHandler) exportFilename(ctx context.Context, reportType string, req model.ExportRequest, role auth.ReportRole, orgUnitID, ext string) string {
+	scope := sanitizeExportSlug(string(role))
+	if reportType == "personal" {
+		scope = scope + "_personal"
+	} else if orgUnitID != "" {
+		if ou, err := h.orgRepo.GetOrgUnit(ctx, orgUnitID); err == nil && ou != nil && ou.Name != "" {
+			scope = scope + "_" + sanitizeExportSlug(ou.Name)
+		}
+	}
+	return fmt.Sprintf("access-report_%s_%s_%s-%s%s", scope, reportType, req.StartDate, req.EndDate, ext)
 }
 

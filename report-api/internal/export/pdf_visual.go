@@ -47,18 +47,18 @@ func WriteVisualReportPDF(bundle VisualReportBundle) ([]byte, error) {
 		writeMetaBlock(pdf, deptSummaryMeta(dept))
 		pdf.Ln(2)
 		if len(dept.SubUnits) > 0 {
-			if png, err := SubUnitsComparisonChartPNG(dept); err == nil {
-				embedPNG(pdf, png, "exec_subunits", chartMaxHeightMM)
-			}
+			embedChartFromGen(pdf, "exec_subunits", chartMaxHeightMM, func() ([]byte, error) {
+				return SubUnitsComparisonChartPNG(dept)
+			})
 			writeSubUnitsTable(pdf, dept.SubUnits)
 		}
 		writeTopGatesList(pdf, bundle.Heatmap)
 	} else if len(dept.SubUnits) > 0 {
 		pdf.AddPage()
 		writeSectionTitle(pdf, "Sub-Unit Comparison", "Direct child departments")
-		if png, err := SubUnitsComparisonChartPNG(dept); err == nil {
-			embedPNG(pdf, png, "subunit_cmp", chartMaxHeightMM)
-		}
+		embedChartFromGen(pdf, "subunit_cmp", chartMaxHeightMM, func() ([]byte, error) {
+			return SubUnitsComparisonChartPNG(dept)
+		})
 		writeSubUnitsTable(pdf, dept.SubUnits)
 	}
 
@@ -288,14 +288,12 @@ func writeCompactDepartmentCharts(pdf *gofpdf.Fpdf, dept *model.DepartmentReport
 		{"dept_late", DepartmentLateChartPNG},
 	}
 	for _, c := range charts {
-		png, err := c.gen(dept)
-		if err != nil {
-			continue
-		}
 		if pdf.GetY()+chartMaxHeightMM > 265 {
 			pdf.AddPage()
 		}
-		embedPNG(pdf, png, c.name, chartMaxHeightMM)
+		embedChartFromGen(pdf, c.name, chartMaxHeightMM, func() ([]byte, error) {
+			return c.gen(dept)
+		})
 	}
 }
 
@@ -311,9 +309,9 @@ func writeFullDepartmentCharts(pdf *gofpdf.Fpdf, dept *model.DepartmentReportRes
 	for _, s := range sections {
 		pdf.AddPage()
 		writeSectionTitle(pdf, s.title, s.desc)
-		if png, err := s.gen(dept); err == nil {
-			embedPNG(pdf, png, s.name, chartMaxHeightMM+14)
-		}
+		embedChartFromGen(pdf, s.name, chartMaxHeightMM+14, func() ([]byte, error) {
+			return s.gen(dept)
+		})
 	}
 }
 
@@ -333,17 +331,17 @@ func writeCompactAnalytics(pdf *gofpdf.Fpdf, bundle VisualReportBundle) {
 	pdf.AddPage()
 	writeSectionTitle(pdf, "Charts - Gate & Attendance", "")
 	if hasHeat {
-		if png, err := DoorHeatmapChartPNG(bundle.Heatmap); err == nil {
-			embedPNG(pdf, png, "door_hm", chartMaxHeightMM)
-		}
+		embedChartFromGen(pdf, "door_hm", chartMaxHeightMM, func() ([]byte, error) {
+			return DoorHeatmapChartPNG(bundle.Heatmap)
+		})
 	}
 	if hasTrends {
-		if png, err := AttendanceHoursChartPNG(bundle.Trends); err == nil {
-			embedPNG(pdf, png, "att_h", chartMaxHeightMM)
-		}
-		if png, err := AttendanceLateChartPNG(bundle.Trends); err == nil {
-			embedPNG(pdf, png, "att_l", chartMaxHeightMM)
-		}
+		embedChartFromGen(pdf, "att_h", chartMaxHeightMM, func() ([]byte, error) {
+			return AttendanceHoursChartPNG(bundle.Trends)
+		})
+		embedChartFromGen(pdf, "att_l", chartMaxHeightMM, func() ([]byte, error) {
+			return AttendanceLateChartPNG(bundle.Trends)
+		})
 	}
 }
 
@@ -351,19 +349,27 @@ func writeFullAnalytics(pdf *gofpdf.Fpdf, bundle VisualReportBundle) {
 	pdf.AddPage()
 	writeSectionTitle(pdf, "Charts - Gate Heatmap", "")
 	if bundle.Heatmap != nil {
-		if png, err := DoorHeatmapChartPNG(bundle.Heatmap); err == nil {
-			embedPNG(pdf, png, "door_hm", chartMaxHeightMM+14)
-		}
+		embedChartFromGen(pdf, "door_hm", chartMaxHeightMM+14, func() ([]byte, error) {
+			return DoorHeatmapChartPNG(bundle.Heatmap)
+		})
+	} else {
+		embedChartFromGen(pdf, "door_hm", chartMaxHeightMM+14, func() ([]byte, error) {
+			return emptyChartPNG("No gate heatmap data")
+		})
 	}
 	pdf.AddPage()
 	writeSectionTitle(pdf, "Charts - Attendance", "")
 	if bundle.Trends != nil {
-		if png, err := AttendanceHoursChartPNG(bundle.Trends); err == nil {
-			embedPNG(pdf, png, "att_h", chartMaxHeightMM+14)
-		}
-		if png, err := AttendanceLateChartPNG(bundle.Trends); err == nil {
-			embedPNG(pdf, png, "att_l", chartMaxHeightMM+14)
-		}
+		embedChartFromGen(pdf, "att_h", chartMaxHeightMM+14, func() ([]byte, error) {
+			return AttendanceHoursChartPNG(bundle.Trends)
+		})
+		embedChartFromGen(pdf, "att_l", chartMaxHeightMM+14, func() ([]byte, error) {
+			return AttendanceLateChartPNG(bundle.Trends)
+		})
+	} else {
+		embedChartFromGen(pdf, "att_h", chartMaxHeightMM+14, func() ([]byte, error) {
+			return emptyChartPNG("No attendance trend data")
+		})
 	}
 }
 
@@ -405,9 +411,35 @@ func writeSectionTitle(pdf *gofpdf.Fpdf, title, desc string) {
 	pdf.Ln(3)
 }
 
+func embedChartFromGen(pdf *gofpdf.Fpdf, name string, maxHeightMM float64, gen func() ([]byte, error)) {
+	png, err := gen()
+	if err != nil || len(png) == 0 {
+		fallback, ferr := emptyChartPNG("Chart unavailable")
+		if ferr != nil {
+			writeChartFallbackText(pdf, err)
+			return
+		}
+		png = fallback
+	}
+	embedPNG(pdf, png, name, maxHeightMM)
+}
+
+func writeChartFallbackText(pdf *gofpdf.Fpdf, err error) {
+	msg := "Chart unavailable"
+	if err != nil {
+		msg = fmt.Sprintf("Chart unavailable: %v", err)
+	}
+	pdf.SetFont("Helvetica", "I", 9)
+	pdf.SetTextColor(120, 120, 120)
+	pdf.CellFormat(0, 6, msg, "", 1, "L", false, 0, "")
+	pdf.SetTextColor(0, 0, 0)
+	pdf.Ln(2)
+}
+
 func embedPNG(pdf *gofpdf.Fpdf, png []byte, name string, maxHeightMM float64) {
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(png))
 	if err != nil || cfg.Width == 0 {
+		writeChartFallbackText(pdf, err)
 		return
 	}
 	aspect := float64(cfg.Height) / float64(cfg.Width)
@@ -427,7 +459,11 @@ func embedPNG(pdf *gofpdf.Fpdf, png []byte, name string, maxHeightMM float64) {
 	}
 	opt := gofpdf.ImageOptions{ImageType: "PNG", ReadDpi: false}
 	imgName := fmt.Sprintf("%s_p%d_%d", name, pdf.PageNo(), int(y*10))
-	_ = pdf.RegisterImageOptionsReader(imgName, opt, bytes.NewReader(png))
+	pngCopy := append([]byte(nil), png...)
+	if pdf.RegisterImageOptionsReader(imgName, opt, bytes.NewReader(pngCopy)) == nil {
+		writeChartFallbackText(pdf, fmt.Errorf("register image failed"))
+		return
+	}
 	x := left + (maxW-w)/2
 	pdf.ImageOptions(imgName, x, y, w, h, false, opt, 0, "")
 	pdf.SetY(y + h + chartGapMM)
