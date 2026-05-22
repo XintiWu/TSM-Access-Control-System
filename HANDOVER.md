@@ -12,7 +12,8 @@
 
 - 決策延遲目標：**&lt; 50ms**（僅依賴 Redis，不查主資料庫）
 - **反潛回（Anti-Passback）**：禁止連續兩次 IN 或連續兩次 OUT
-- **非同步寫入**：刷卡事件經 Kafka 緩衝，再由 Worker 寫入 MariaDB
+- **非同步寫入**：刷卡事件經 Kafka 緩衝，再由 Worker 寫入 ClickHouse
+- **持久化**：ClickHouse（`inout_events`、`employee`、`org_unit`）
 - **韌性**：主資料庫掛掉時，門仍可開（決策與事件發布不依賴 DB）
 
 已涵蓋 **Access Tier 刷卡路徑** 與 **Admin 封禁 / Cache Invalidation**；尚未含 Report API、K8s 維運。
@@ -24,7 +25,7 @@
 ```
 Distributed Physical Access Control System/
 ├── docker-compose.yml          # 本地一鍵啟動全部服務
-├── Makefile                    # up / migrate / ban / demo-ban / verify-pipeline / test
+├── Makefile                    # up / seed-ch / ban / demo-ban / verify-pipeline / test
 ├── README.md                   
 ├── migrations/
 │   ├── 001_inout_events.sql
@@ -52,9 +53,9 @@ Distributed Physical Access Control System/
 
 | 項目 | 說明 |
 |------|------|
-| Docker Compose | Redis、Kafka、MariaDB、access-api、admin-api、aggregation-worker、cache-invalidation-worker |
-| MariaDB 初始化 | `001_inout_events.sql`、`002_employee.sql`（新 volume 自動執行；舊 volume 用 `make migrate`） |
-| Makefile | 含 `init-kafka-topics`、`migrate`、`ban`/`unban`、`demo-ban`、`verify-pipeline`、`test-e2e-pipeline` 等 |
+| Docker Compose | Redis、Kafka、ClickHouse、access-api、admin-api、aggregation-worker、report-api、cache-invalidation-worker |
+| ClickHouse 初始化 | `clickhouse/init.sql`（新 volume）；demo 資料 `make seed-ch` → `clickhouse/seed.sql` |
+| Makefile | 含 `init-kafka-topics`、`seed-ch`、`ban`/`unban`、`demo-ban`、`verify-pipeline`、`test-e2e-pipeline` 等 |
 | 測試資料腳本 | `seed-redis.sh`（僅 door 狀態與 passback；**不**寫入 `perm:denied`） |
 | Kafka Topics | `make up` 時建立 `inout-events`、`permission-events`，並重啟 cache-invalidation-worker |
 
@@ -66,7 +67,8 @@ Distributed Physical Access Control System/
 | Admin API | 8081 |
 | Redis | 6379 |
 | Kafka | 9092 |
-| MariaDB | **3307**（對外；因本機 3306 常被佔用） |
+| ClickHouse HTTP | **8123** |
+| ClickHouse Native | **9000** |
 
 ### 3.2 Access API（`access-api/`）
 
@@ -138,13 +140,13 @@ Admin API: UPDATE employee.is_active
 
 ### 3.6 Kafka → DB 鏈路驗證與自動化測試
 
-驗證 **Access API 發布 Kafka → Aggregation Worker 消費 → MariaDB `inout_events`** 整條非同步寫入路徑。
+驗證 **Access API 發布 Kafka → Aggregation Worker 消費 → ClickHouse `inout_events`** 整條非同步寫入路徑。
 
 | 方式 | 指令 | 前置條件 | 說明 |
 |------|------|----------|------|
 | Shell 腳本驗證 | `make verify-pipeline` | `make up` 後五個服務皆 Running | `scripts/verify-pipeline.sh`：清 passback → swipe → 輪詢 DB 比對 eventId / employee / direction / status |
 | Go 整合測試（Redis） | `make test-integration` | Docker（testcontainers 起 Redis） | **不需** compose 全堆疊；`swipe_test.go` 驗證反潛回 IN→IN→OUT |
-| Go 全鏈路 E2E | `make test-e2e-pipeline` | `make up` + 設 `E2E_PIPELINE=1` | `pipeline_e2e_test.go`：HTTP swipe → 直連 MariaDB 輪詢至 30s |
+| Go 全鏈路 E2E | `make test-e2e-pipeline` | `make up` + 設 `E2E_PIPELINE=1` | `pipeline_e2e_test.go`：HTTP swipe → 直連 ClickHouse 輪詢至 30s |
 | 單元測試 | `make test-unit` | 無 | `access_decision_test.go` 等，不依賴外部服務 |
 
 **驗證流程（`verify-pipeline` / E2E 共用邏輯）：**
@@ -154,7 +156,7 @@ POST /access/swipe (IN)
     → access-api 回傳 eventId、decision
     → Kafka topic inout-events
     → aggregation-worker INSERT IGNORE inout_events
-    → 輪詢 MariaDB WHERE id = eventId（預設每 2s、最長 30s）
+    → 輪詢 ClickHouse WHERE id = eventId（預設每 2s、最長 30s）
     → 斷言 employee_id、direction、status 與 swipe 回應一致
 ```
 
@@ -173,7 +175,7 @@ POST /access/swipe (IN)
 | 變數 | 預設 | 說明 |
 |------|------|------|
 | `API_URL` | `http://localhost:8080` | Access API 位址 |
-| `DB_DSN` | `access:access@tcp(127.0.0.1:3307)/access_control?parseTime=true` | E2E 連 MariaDB（本機對外埠 3307） |
+| `CH_DSN` | `clickhouse://default:password123@127.0.0.1:9000/access_control` | E2E 連 ClickHouse |
 | `DEMO_USER` / `DEMO_DOOR` | 見 §6 測試 UUID | swipe 與 DB 比對用 |
 | `POLL_INTERVAL` / `POLL_TIMEOUT` | `2` / `30` | 僅 `verify-pipeline.sh` |
 | `E2E_PIPELINE` | — | 設為 `1` 時才執行 `TestPipelineE2E`（`make test-e2e-pipeline` 會自動帶入） |
@@ -237,13 +239,13 @@ POST /access/swipe (IN)
 | 模擬刷卡 | `make swipe` | 回傳 decision、eventId、latency | **通過**（例：latency ~17ms） |
 | 鏈路驗證 | `make verify-pipeline` | 單次 swipe → 輪詢 `inout_events` 依 eventId 斷言 | **通過**（~3s 內寫入 DB） |
 | Redis 整合測試 | `make test-integration` | testcontainers Redis + 反潛回 HTTP | **通過** |
-| 全鏈路 E2E | `make test-e2e-pipeline` | 對 compose 堆疊：swipe → MariaDB 查表 | **通過** |
+| 全鏈路 E2E | `make test-e2e-pipeline` | 對 compose 堆疊：swipe → ClickHouse 查表 | **通過** |
 | Admin 封禁鏈路 | `make demo-ban` | ban → swipe DENY(PERMISSION_DENIED) → unban → ALLOW | **通過** |
 
 ### 5.2 Kafka → DB 驗證與 E2E（執行順序建議）
 
 ```bash
-# ① 啟動完整堆疊（含 Kafka、Worker、MariaDB）
+# ① 啟動完整堆疊（含 Kafka、Worker、ClickHouse）
 make up
 
 # ② Shell 鏈路驗證（適合示範／手動驗收）
@@ -272,13 +274,13 @@ docker ps
 # 2. 進入專案根目錄
 cd "Distributed Physical Access Control System"
 
-# 3. 啟動（build + Kafka topics + migrate + seed）
+# 3. 啟動（build + Kafka topics + seed-ch + seed）
 make up
 
 # 4. 驗收
 make demo              # 反潛回 + Admin 封禁示範
 make demo-ban          # 封禁鏈路專用示範
-make verify-pipeline   # Kafka → MariaDB
+make verify-pipeline   # Kafka → ClickHouse
 make swipe
 curl http://localhost:8080/health
 curl http://localhost:8081/health
@@ -293,7 +295,7 @@ make down
 **既有 DB volume 升級（不刪資料）：**
 
 ```bash
-make migrate    # 套用 002_employee.sql
+make seed-ch    # 重載 demo org/employee
 make up         # 或僅 restart 相關服務
 ```
 
@@ -310,11 +312,11 @@ make up         # 或僅 restart 相關服務
 ## 7. 已知問題與注意事項
 
 1. **Docker 必須先啟動**：否則 `make up` 會出現 `Cannot connect to the Docker daemon`。
-2. **MariaDB 對外埠為 3307**：本機若已佔用 3306，compose 已改映射；容器內服務仍用 `mariadb:3306`。
+2. **ClickHouse**：HTTP `8123`、Native `9000`；密碼見 `docker-compose.yml`（`password123`）。
 3. **Kafka 映像**：使用 `apache/kafka:3.7.0`（原設計寫 bitnami，該 tag 已不可用）。
 4. **根目錄無 go.mod**：執行 Go 程式請 `cd badge-reader-sim` 等子目錄，或用 `make swipe`。
 5. **封禁流程**：使用 `make ban` / Admin API；`seed-redis.sh` 不再寫入 `perm:denied`。
-6. **升級 DB**：若已有 `mariadb_data` volume，請執行 `make migrate` 或 `make down -v` 後 `make up`。
+6. **升級 DB**：schema 變更後請 `make down -v` 再 `make up`，或手動重跑 `clickhouse/init.sql` / `make seed-ch`。
 7. **Kafka topic 與 Worker**：`make up` 會 `init-kafka-topics` 並重啟 `cache-invalidation-worker`，避免 topic 尚未建立時 consumer 無法訂閱。
 8. **Admin API 重建**：修改 `admin-api` 後需 `docker compose up -d --build admin-api`，否則可能仍跑舊映像。
 9. **設計文件 minor 差異**：Sequence 圖曾出現 `perm:{userId}:{doorId}`，實作採用較新的 **`perm:denied:{userId}`**（見 HTML §4.1.2）。

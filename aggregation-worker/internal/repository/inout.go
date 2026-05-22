@@ -6,31 +6,15 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/tsmc/aggregation-worker/internal/model"
 )
 
 type InOutRepository struct {
-	db     *sql.DB
 	chConn clickhouse.Conn
 }
 
-func NewInOutRepository(mariaDSN string, chAddr, chUser, chPass string) (*InOutRepository, error) {
-	// Connect to MariaDB
-	db, err := sql.Open("mysql", mariaDSN)
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-
-	// Connect to ClickHouse
+func NewInOutRepository(chAddr, chUser, chPass string) (*InOutRepository, error) {
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{chAddr},
 		Auth: clickhouse.Auth{
@@ -45,16 +29,13 @@ func NewInOutRepository(mariaDSN string, chAddr, chUser, chPass string) (*InOutR
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		_ = db.Close()
 		return nil, err
 	}
 	if err := chConn.Ping(context.Background()); err != nil {
-		_ = db.Close()
 		_ = chConn.Close()
 		return nil, err
 	}
-
-	return &InOutRepository{db: db, chConn: chConn}, nil
+	return &InOutRepository{chConn: chConn}, nil
 }
 
 func (r *InOutRepository) Insert(ctx context.Context, e model.InOutEvent, orgUnitID string) error {
@@ -95,22 +76,29 @@ func (r *InOutRepository) Insert(ctx context.Context, e model.InOutEvent, orgUni
 }
 
 func (r *InOutRepository) GetEmployeeOrgUnitID(ctx context.Context, employeeID string) (string, error) {
-	var orgUnitID sql.NullString
-	err := r.db.QueryRowContext(ctx,
-		`SELECT org_unit_id FROM employee WHERE id = ? LIMIT 1`, employeeID).Scan(&orgUnitID)
+	id, err := uuid.Parse(employeeID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		}
 		return "", err
 	}
-	if !orgUnitID.Valid {
+	var orgUnitID *uuid.UUID
+	var count uint64
+	if err := r.chConn.QueryRow(ctx, `SELECT count() FROM employee WHERE id = ?`, id).Scan(&count); err != nil {
+		return "", err
+	}
+	if count == 0 {
 		return "", nil
 	}
-	return orgUnitID.String, nil
+	err = r.chConn.QueryRow(ctx, `
+		SELECT argMax(org_unit_id, updated_at) FROM employee WHERE id = ? GROUP BY id`, id).Scan(&orgUnitID)
+	if err != nil {
+		return "", err
+	}
+	if orgUnitID == nil {
+		return "", nil
+	}
+	return orgUnitID.String(), nil
 }
 
 func (r *InOutRepository) Close() error {
-	_ = r.db.Close()
 	return r.chConn.Close()
 }

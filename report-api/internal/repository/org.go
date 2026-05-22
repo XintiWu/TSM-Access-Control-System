@@ -2,62 +2,92 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/google/uuid"
 	"github.com/tsmc/report-api/internal/model"
 )
 
-// OrgRepository handles queries against the org_unit table.
+// OrgRepository handles queries against org_unit and employee in ClickHouse.
 type OrgRepository struct {
-	db *sql.DB
+	chConn clickhouse.Conn
 }
 
-// NewOrgRepository opens a MariaDB connection for org_unit queries.
-func NewOrgRepository(dsn string) (*OrgRepository, error) {
-	db, err := sql.Open("mysql", dsn)
+// NewOrgRepository opens a ClickHouse connection for org/employee queries.
+func NewOrgRepository(chAddr, chUser, chPass string) (*OrgRepository, error) {
+	chConn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{chAddr},
+		Auth: clickhouse.Auth{
+			Database: "access_control",
+			Username: chUser,
+			Password: chPass,
+		},
+		DialTimeout: 5 * time.Second,
+	})
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
+	if err := chConn.Ping(context.Background()); err != nil {
+		_ = chConn.Close()
 		return nil, err
 	}
-	return &OrgRepository{db: db}, nil
+	return &OrgRepository{chConn: chConn}, nil
+}
+
+func (r *OrgRepository) Ping(ctx context.Context) error {
+	return r.chConn.Ping(ctx)
 }
 
 // GetOrgUnit returns a single org_unit by ID. Returns nil if not found.
 func (r *OrgRepository) GetOrgUnit(ctx context.Context, id string) (*model.OrgUnit, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, name, COALESCE(parent_id,''), depth, materialized_path
-		 FROM org_unit WHERE id = ?`, id)
-	var u model.OrgUnit
-	if err := row.Scan(&u.ID, &u.Name, &u.ParentID, &u.Depth, &u.MaterializedPath); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
+	orgID, err := uuid.Parse(id)
+	if err != nil {
 		return nil, err
+	}
+	var count uint64
+	if err := r.chConn.QueryRow(ctx, `SELECT count() FROM org_unit WHERE id = ?`, orgID).Scan(&count); err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, nil
+	}
+
+	var u model.OrgUnit
+	var idOut uuid.UUID
+	var parentID *uuid.UUID
+	var depth uint8
+	err = r.chConn.QueryRow(ctx, `
+		SELECT id, name, parent_id, depth, materialized_path
+		FROM org_unit WHERE id = ?`, orgID).Scan(
+		&idOut, &u.Name, &parentID, &depth, &u.MaterializedPath,
+	)
+	u.ID = idOut.String()
+	u.Depth = int(depth)
+	if err != nil {
+		return nil, err
+	}
+	if parentID != nil {
+		u.ParentID = parentID.String()
 	}
 	return &u, nil
 }
 
-// GetSubtreeIDs returns all org_unit IDs under the given unit (inclusive),
-// using the materialized_path LIKE pattern for fast subtree lookups.
+// GetSubtreeIDs returns all org_unit IDs under the given unit (inclusive).
 func (r *OrgRepository) GetSubtreeIDs(ctx context.Context, orgUnitID string) ([]string, error) {
-	// First get the materialized_path of the given org unit.
+	orgID, err := uuid.Parse(orgUnitID)
+	if err != nil {
+		return nil, err
+	}
 	var path string
-	err := r.db.QueryRowContext(ctx,
-		`SELECT materialized_path FROM org_unit WHERE id = ?`, orgUnitID).Scan(&path)
+	err = r.chConn.QueryRow(ctx,
+		`SELECT materialized_path FROM org_unit WHERE id = ?`, orgID).Scan(&path)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id FROM org_unit WHERE materialized_path LIKE CONCAT(?, '%')`, path)
+	rows, err := r.chConn.Query(ctx,
+		`SELECT toString(id) FROM org_unit WHERE materialized_path LIKE concat(?, '%')`, path)
 	if err != nil {
 		return nil, err
 	}
@@ -75,34 +105,48 @@ func (r *OrgRepository) GetSubtreeIDs(ctx context.Context, orgUnitID string) ([]
 }
 
 // GetEmployeeOrgUnitID returns the org_unit_id for the given employee.
-// Returns ("", nil) if the employee is not found or has no org_unit.
 func (r *OrgRepository) GetEmployeeOrgUnitID(ctx context.Context, employeeID string) (string, error) {
-	var orgUnitID sql.NullString
-	err := r.db.QueryRowContext(ctx,
-		`SELECT org_unit_id FROM employee WHERE id = ?`, employeeID).Scan(&orgUnitID)
+	id, err := uuid.Parse(employeeID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		}
 		return "", err
 	}
-	if !orgUnitID.Valid {
+	var count uint64
+	if err := r.chConn.QueryRow(ctx, `SELECT count() FROM employee WHERE id = ?`, id).Scan(&count); err != nil {
+		return "", err
+	}
+	if count == 0 {
 		return "", nil
 	}
-	return orgUnitID.String, nil
+	var orgUnitID *uuid.UUID
+	err = r.chConn.QueryRow(ctx, `
+		SELECT argMax(org_unit_id, updated_at) FROM employee WHERE id = ? GROUP BY id`, id).Scan(&orgUnitID)
+	if err != nil {
+		return "", err
+	}
+	if orgUnitID == nil {
+		return "", nil
+	}
+	return orgUnitID.String(), nil
 }
 
 // IsInSubtree checks whether targetOrgUnitID is a descendant (or equal) of requesterOrgUnitID.
 func (r *OrgRepository) IsInSubtree(ctx context.Context, requesterOrgUnitID, targetOrgUnitID string) (bool, error) {
-	// Get target's materialized_path and check if it starts with requester's path.
-	var requesterPath, targetPath string
-	err := r.db.QueryRowContext(ctx,
-		`SELECT materialized_path FROM org_unit WHERE id = ?`, requesterOrgUnitID).Scan(&requesterPath)
+	reqID, err := uuid.Parse(requesterOrgUnitID)
 	if err != nil {
 		return false, err
 	}
-	err = r.db.QueryRowContext(ctx,
-		`SELECT materialized_path FROM org_unit WHERE id = ?`, targetOrgUnitID).Scan(&targetPath)
+	tgtID, err := uuid.Parse(targetOrgUnitID)
+	if err != nil {
+		return false, err
+	}
+	var requesterPath, targetPath string
+	err = r.chConn.QueryRow(ctx,
+		`SELECT materialized_path FROM org_unit WHERE id = ?`, reqID).Scan(&requesterPath)
+	if err != nil {
+		return false, err
+	}
+	err = r.chConn.QueryRow(ctx,
+		`SELECT materialized_path FROM org_unit WHERE id = ?`, tgtID).Scan(&targetPath)
 	if err != nil {
 		return false, err
 	}
@@ -111,9 +155,13 @@ func (r *OrgRepository) IsInSubtree(ctx context.Context, requesterOrgUnitID, tar
 
 // GetChildUnits returns the direct children of an org_unit.
 func (r *OrgRepository) GetChildUnits(ctx context.Context, parentID string) ([]model.OrgUnit, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, name, COALESCE(parent_id,''), depth, materialized_path
-		 FROM org_unit WHERE parent_id = ?`, parentID)
+	pid, err := uuid.Parse(parentID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := r.chConn.Query(ctx, `
+		SELECT id, name, parent_id, depth, materialized_path
+		FROM org_unit WHERE parent_id = ?`, pid)
 	if err != nil {
 		return nil, err
 	}
@@ -122,15 +170,22 @@ func (r *OrgRepository) GetChildUnits(ctx context.Context, parentID string) ([]m
 	var units []model.OrgUnit
 	for rows.Next() {
 		var u model.OrgUnit
-		if err := rows.Scan(&u.ID, &u.Name, &u.ParentID, &u.Depth, &u.MaterializedPath); err != nil {
+		var idOut uuid.UUID
+		var parent *uuid.UUID
+		var depth uint8
+		if err := rows.Scan(&idOut, &u.Name, &parent, &depth, &u.MaterializedPath); err != nil {
 			return nil, err
+		}
+		u.ID = idOut.String()
+		u.Depth = int(depth)
+		if parent != nil {
+			u.ParentID = parent.String()
 		}
 		units = append(units, u)
 	}
 	return units, rows.Err()
 }
 
-// Close closes the database connection.
 func (r *OrgRepository) Close() error {
-	return r.db.Close()
+	return r.chConn.Close()
 }

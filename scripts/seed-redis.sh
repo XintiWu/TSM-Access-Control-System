@@ -20,7 +20,7 @@ redis_cmd SET "door:status:${DOOR_ID}" "ONLINE" EX 30
 # Clear passback state for demo user
 redis_cmd DEL "passback:${NORMAL_USER}"
 
-# Card → userId mappings (mirrors employee.card_uid in MariaDB)
+# Card → userId mappings (mirrors employee.card_uid in ClickHouse)
 redis_cmd SET "card:CARD001" "${NORMAL_USER}" EX 86400
 redis_cmd SET "card:CARD099" "${BANNED_USER}" EX 86400
 

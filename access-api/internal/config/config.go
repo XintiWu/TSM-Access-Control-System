@@ -6,11 +6,13 @@ import (
 )
 
 type Config struct {
-	HTTPAddr     string
-	RedisAddr    string
-	KafkaBrokers []string
-	KafkaTopic   string
-	DBDSN        string // optional — enables fallback when Redis is down
+	HTTPAddr         string
+	RedisAddr        string
+	KafkaBrokers     []string
+	KafkaTopic       string
+	ClickHouseAddr   string // optional — enables fallback when Redis is down
+	ClickHouseUser   string
+	ClickHousePass   string
 }
 
 func Load() Config {
@@ -30,13 +32,19 @@ func Load() Config {
 	if redis == "" {
 		redis = "localhost:6379"
 	}
-	dbDSN := os.Getenv("DB_DSN") // empty = no DB fallback
+	chAddr := os.Getenv("CLICKHOUSE_ADDR")
+	chUser := os.Getenv("CLICKHOUSE_USER")
+	if chUser == "" {
+		chUser = "default"
+	}
+	chPass := os.Getenv("CLICKHOUSE_PASSWORD")
 	return Config{
-		HTTPAddr:     addr,
-		RedisAddr:    redis,
-		KafkaBrokers: strings.Split(brokers, ","),
-		KafkaTopic:   topic,
-		DBDSN:        dbDSN,
+		HTTPAddr:       addr,
+		RedisAddr:      redis,
+		KafkaBrokers:   strings.Split(brokers, ","),
+		KafkaTopic:     topic,
+		ClickHouseAddr: chAddr,
+		ClickHouseUser: chUser,
+		ClickHousePass: chPass,
 	}
 }
-

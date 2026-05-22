@@ -54,7 +54,7 @@ func (w *Worker) Run(ctx context.Context) error {
 			continue
 		}
 
-		// Fetch employee's org_unit_id from MariaDB to enrich the ClickHouse event
+		// Fetch employee's org_unit_id from ClickHouse to enrich the event
 		orgLookupCtx, orgLookupCancel := context.WithTimeout(ctx, 5*time.Second)
 		orgUnitID, err := w.repo.GetEmployeeOrgUnitID(orgLookupCtx, event.EmployeeID)
 		if err != nil {

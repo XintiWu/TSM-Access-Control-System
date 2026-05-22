@@ -18,7 +18,7 @@ require_service() {
 echo "=== Kafka → DB pipeline verification ==="
 echo
 
-for svc in access-api kafka aggregation-worker mariadb redis clickhouse; do
+for svc in access-api kafka aggregation-worker redis clickhouse; do
   require_service "$svc"
 done
 echo "Docker services OK"

@@ -17,7 +17,8 @@ up:
 	@$(MAKE) init-kafka-topics
 	$(COMPOSE) restart cache-invalidation-worker
 	@sleep 5
-	@$(MAKE) migrate
+	@$(MAKE) schema-ch
+	@$(MAKE) seed-ch
 	@$(MAKE) seed
 
 init-kafka-topics:
@@ -32,17 +33,17 @@ down:
 build:
 	$(COMPOSE) build
 
-# Apply migrations on existing MariaDB volumes (002+). Fresh installs also run via docker-entrypoint-initdb.d.
-migrate:
-	@test -f migrations/002_employee.sql
-	$(COMPOSE) exec -T mariadb mariadb -uaccess -paccess access_control < migrations/002_employee.sql
-	@echo "Migration 002 applied"
-	@test -f migrations/003_org_unit.sql
-	$(COMPOSE) exec -T mariadb mariadb -uaccess -paccess access_control < migrations/003_org_unit.sql
-	@echo "Migration 003 applied"
-	@test -f migrations/004_pre_aggregated_reports.sql
-	$(COMPOSE) exec -T mariadb mariadb -uaccess -paccess access_control < migrations/004_pre_aggregated_reports.sql
-	@echo "Migration 004 applied"
+# Ensure ClickHouse schema exists (idempotent CREATE IF NOT EXISTS).
+schema-ch:
+	@test -f clickhouse/init.sql
+	$(COMPOSE) exec -T clickhouse clickhouse-client --password password123 --multiquery < clickhouse/init.sql
+	@echo "ClickHouse schema applied"
+
+# Load demo org/employee into ClickHouse (idempotent TRUNCATE + INSERT).
+seed-ch:
+	@test -f clickhouse/seed.sql
+	$(COMPOSE) exec -T clickhouse clickhouse-client --password password123 --multiquery < clickhouse/seed.sql
+	@echo "ClickHouse seed applied"
 
 seed:
 	@chmod +x scripts/seed-redis.sh scripts/demo.sh scripts/demo-ban.sh scripts/verify-pipeline.sh

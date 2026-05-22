@@ -34,15 +34,15 @@ func main() {
 
 	decisions := service.NewAccessDecisionService(redisCache)
 
-	// Optional: DB fallback for when Redis is unavailable (§8 Resilience)
-	if cfg.DBDSN != "" {
-		repo, err := repository.NewEmployeeRepository(cfg.DBDSN)
+	// Optional: ClickHouse fallback for when Redis is unavailable (§8 Resilience)
+	if cfg.ClickHouseAddr != "" {
+		repo, err := repository.NewEmployeeRepository(cfg.ClickHouseAddr, cfg.ClickHouseUser, cfg.ClickHousePass)
 		if err != nil {
-			log.Printf("WARNING: DB fallback disabled — cannot connect to MariaDB: %v", err)
+			log.Printf("WARNING: DB fallback disabled — cannot connect to ClickHouse: %v", err)
 		} else {
 			decisions.SetDBFallback(repo)
 			defer repo.Close()
-			log.Printf("DB fallback enabled for Redis-down resilience")
+			log.Printf("ClickHouse fallback enabled for Redis-down resilience")
 		}
 	}
 

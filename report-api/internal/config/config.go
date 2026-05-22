@@ -4,10 +4,9 @@ import "os"
 
 // Config holds all configuration for the report-api service.
 type Config struct {
-	HTTPAddr       string // default ":8082"
-	RedisAddr      string // Report Cache
-	DBDSN          string // MariaDB connection
-	ClickHouseAddr string // ClickHouse Native TCP address
+	HTTPAddr       string
+	RedisAddr      string
+	ClickHouseAddr string
 	ClickHouseUser string
 	ClickHousePass string
 	ExportDir      string
@@ -22,10 +21,6 @@ func Load() Config {
 	redis := os.Getenv("REDIS_ADDR")
 	if redis == "" {
 		redis = "localhost:6379"
-	}
-	dsn := os.Getenv("DB_DSN")
-	if dsn == "" {
-		dsn = "access:access@tcp(localhost:3306)/access_control?parseTime=true"
 	}
 	chAddr := os.Getenv("CLICKHOUSE_ADDR")
 	if chAddr == "" {
@@ -43,7 +38,6 @@ func Load() Config {
 	return Config{
 		HTTPAddr:       addr,
 		RedisAddr:      redis,
-		DBDSN:          dsn,
 		ClickHouseAddr: chAddr,
 		ClickHouseUser: chUser,
 		ClickHousePass: chPass,

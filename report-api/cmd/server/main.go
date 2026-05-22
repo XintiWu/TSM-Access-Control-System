@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tsmc/report-api/internal/cache"
 	"github.com/tsmc/report-api/internal/config"
@@ -24,7 +22,6 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// Redis (Report Cache)
 	reportCache := cache.NewReportCache(cfg.RedisAddr)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -32,27 +29,16 @@ func main() {
 		log.Printf("WARNING: Redis unavailable — report cache disabled: %v", err)
 	}
 
-	// MariaDB — wait up to 60s for DB readiness
-	var db *sql.DB
-	var dbErr error
+	var orgRepo *repository.OrgRepository
+	var err error
 	for i := 0; i < 30; i++ {
-		db, dbErr = sql.Open("mysql", cfg.DBDSN)
-		if dbErr == nil {
-			dbErr = db.Ping()
-		}
-		if dbErr == nil {
+		orgRepo, err = repository.NewOrgRepository(cfg.ClickHouseAddr, cfg.ClickHouseUser, cfg.ClickHousePass)
+		if err == nil {
 			break
 		}
-		log.Printf("waiting for database: %v", dbErr)
+		log.Printf("waiting for ClickHouse: %v", err)
 		time.Sleep(2 * time.Second)
 	}
-	if dbErr != nil {
-		log.Fatalf("database: %v", dbErr)
-	}
-	defer db.Close()
-
-	// Repositories (share the same DSN, each manages its own pool)
-	orgRepo, err := repository.NewOrgRepository(cfg.DBDSN)
 	if err != nil {
 		log.Fatalf("org repository: %v", err)
 	}
@@ -75,18 +61,16 @@ func main() {
 		log.Fatalf("export jobs: %v", err)
 	}
 
-	// Service + Handler
 	svc := service.NewReportService(orgRepo, reportRepo, inoutRepo, reportCache, jobStore)
 	h := handler.NewReportHandler(svc, orgRepo)
 
-	// Router
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger())
 
 	r.GET("/health", func(c *gin.Context) {
-		if err := db.Ping(); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "db": err.Error()})
+		if err := orgRepo.Ping(c.Request.Context()); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "clickhouse": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -103,7 +87,6 @@ func main() {
 		api.GET("/export/jobs/:jobId", h.ExportJobGet)
 	}
 
-	// Graceful shutdown
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}
 
 	go func() {

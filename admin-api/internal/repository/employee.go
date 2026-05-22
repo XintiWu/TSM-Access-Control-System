@@ -2,66 +2,119 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/google/uuid"
 )
 
 var ErrNotFound = errors.New("employee not found")
 
 type EmployeeRepository struct {
-	db *sql.DB
+	chConn clickhouse.Conn
 }
 
-func NewEmployeeRepository(dsn string) (*EmployeeRepository, error) {
-	db, err := sql.Open("mysql", dsn)
+func NewEmployeeRepository(chAddr, chUser, chPass string) (*EmployeeRepository, error) {
+	chConn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{chAddr},
+		Auth: clickhouse.Auth{
+			Database: "access_control",
+			Username: chUser,
+			Password: chPass,
+		},
+		DialTimeout: 5 * time.Second,
+	})
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
+	if err := chConn.Ping(context.Background()); err != nil {
+		_ = chConn.Close()
 		return nil, err
 	}
-	return &EmployeeRepository{db: db}, nil
+	return &EmployeeRepository{chConn: chConn}, nil
 }
 
 func (r *EmployeeRepository) Ping(ctx context.Context) error {
-	return r.db.PingContext(ctx)
+	return r.chConn.Ping(ctx)
 }
 
 func (r *EmployeeRepository) Exists(ctx context.Context, userID string) (bool, error) {
-	var n int
-	err := r.db.QueryRowContext(ctx, `SELECT 1 FROM employee WHERE id = ? LIMIT 1`, userID).Scan(&n)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
+	id, err := uuid.Parse(userID)
 	if err != nil {
 		return false, err
 	}
-	return true, nil
+	var count uint64
+	err = r.chConn.QueryRow(ctx, `SELECT count() FROM employee WHERE id = ?`, id).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *EmployeeRepository) SetActive(ctx context.Context, userID string, active bool) error {
-	res, err := r.db.ExecContext(ctx,
-		`UPDATE employee SET is_active = ? WHERE id = ?`, active, userID)
+	row, err := r.getLatest(ctx, userID)
 	if err != nil {
 		return err
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
+	if row == nil {
 		return ErrNotFound
 	}
-	return nil
+
+	activeVal := uint8(0)
+	if active {
+		activeVal = 1
+	}
+
+	return r.chConn.Exec(ctx, `
+		INSERT INTO employee (id, name, card_uid, is_active, org_unit_id, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		row.id, row.name, row.cardUID, activeVal, row.orgUnitID, time.Now().UTC(),
+	)
+}
+
+type employeeSnapshot struct {
+	id        uuid.UUID
+	name      string
+	cardUID   *string
+	isActive  uint8
+	orgUnitID *uuid.UUID
+}
+
+func (r *EmployeeRepository) getLatest(ctx context.Context, userID string) (*employeeSnapshot, error) {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, err
+	}
+	var count uint64
+	if err := r.chConn.QueryRow(ctx, `SELECT count() FROM employee WHERE id = ?`, id).Scan(&count); err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, nil
+	}
+
+	var (
+		name      string
+		cardUID   *string
+		isActive  uint8
+		orgUnitID *uuid.UUID
+	)
+	err = r.chConn.QueryRow(ctx, `
+		SELECT
+			argMax(name, updated_at),
+			argMax(card_uid, updated_at),
+			argMax(is_active, updated_at),
+			argMax(org_unit_id, updated_at)
+		FROM employee
+		WHERE id = ?
+		GROUP BY id`, id).Scan(&name, &cardUID, &isActive, &orgUnitID)
+	if err != nil {
+		return nil, err
+	}
+	return &employeeSnapshot{id: id, name: name, cardUID: cardUID, isActive: isActive, orgUnitID: orgUnitID}, nil
 }
 
 func (r *EmployeeRepository) Close() error {
-	return r.db.Close()
+	return r.chConn.Close()
 }

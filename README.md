@@ -9,7 +9,9 @@ TSMC Cloud Native 2026 — Physical Access Control (Fast Path + Admin ban)
 - **cache-invalidation-worker**: Syncs `perm:denied` keys to Redis
 - **Redis**: Permission deny-list + anti-passback state
 - **Kafka** (`inout-events`, `permission-events`): Async event buffers
-- **aggregation-worker**: Persists swipe events to MariaDB
+- **aggregation-worker**: Persists swipe events to ClickHouse
+- **ClickHouse**: Events, org tree, employees (single persistent store)
+- **report-api** (8082): Reports and CSV/PDF export
 - **badge-reader-sim**: CLI simulator for badge swipes
 
 ## Git commits (avoid Cursor on Contributors)
@@ -27,17 +29,17 @@ This installs `.githooks/` so any `Co-authored-by: Cursor <cursoragent@cursor.co
 **Prerequisite:** Docker Desktop must be running (`docker ps` should succeed).
 
 ```bash
-make up              # docker compose up + migrate + seed Redis
+make up              # docker compose up + ClickHouse seed + Redis seed
 make demo            # anti-passback demo (ban step uses Admin API)
 make demo-ban        # Admin ban → Redis → swipe DENY → unban
-make verify-pipeline # confirm swipe event reaches MariaDB via Kafka
+make verify-pipeline # confirm swipe event reaches ClickHouse via Kafka
 make down            # tear down
 ```
 
-Upgrading an existing DB volume (without `make down -v`):
+Re-seed ClickHouse demo data (without wiping volumes):
 
 ```bash
-make migrate         # apply migrations/002_employee.sql
+make seed-ch
 ```
 
 If you see `Cannot connect to the Docker daemon`, open **Docker Desktop** and wait until it is ready, then run `make up` again.
@@ -100,7 +102,7 @@ cd badge-reader-sim && go run ./cmd/sim --count 100 --interval 50ms
 
 ## Report API (port 8082)
 
-Slow-path reporting backed by **MariaDB** (org tree) and **ClickHouse** (events / pre-aggregation).
+Slow-path reporting backed entirely by **ClickHouse** (events, org tree, employees).
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -148,7 +150,7 @@ Config lives under `monitoring/` (Prometheus scrape + Grafana provisioning).
 make test-unit
 make test-integration      # Redis testcontainers (no compose stack required)
 make test-e2e-pipeline       # full Kafka→DB path (requires make up)
-make verify-pipeline       # shell script: swipe + poll MariaDB
+make verify-pipeline       # shell script: swipe + poll ClickHouse
 ```
 
 ## Demo UUIDs (after `make seed`)

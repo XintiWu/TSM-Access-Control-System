@@ -91,7 +91,7 @@ graph TB
     end
 
     subgraph Persistence
-        DB[(MariaDB<br/>InOut Events + Org Tree)]
+        DB[(ClickHouse<br/>InOut Events + Org Tree)]
     end
 
     subgraph Observability
@@ -179,7 +179,7 @@ Storing only denied users introduces a **cache inconsistency window**: if a user
 ```mermaid
 sequenceDiagram
     participant ADM as Admin Service
-    participant D as MariaDB
+    participant D as ClickHouse
     participant Q as Message Queue
     participant CW as Cache Invalidation Worker
     participant R as Redis Cache
@@ -208,7 +208,7 @@ graph LR
     API[Access API] -->|Publish| Q[(Message Queue <br> Topic: inout-events)]
     Q -->|Consume| W1[Aggregation Worker 1]
     Q -->|Consume| W2[Aggregation Worker 2]
-    W1 -->|Write| DB[(MariaDB)]
+    W1 -->|Write| DB[(ClickHouse)]
     W2 -->|Write| DB
 ```
 
@@ -225,7 +225,7 @@ The Slow Path serves manager dashboards and attendance reports. Latency target: 
 
 The worker consumes events from the queue and does two things:
 
-1. **Durable write** — persists the raw `InOutEvent` to MariaDB
+1. **Durable write** — persists the raw `InOutEvent` to ClickHouse
 1. **Pre-aggregation** — incrementally updates materialized report caches
 
 ```mermaid
@@ -327,7 +327,7 @@ sequenceDiagram
     participant R as Redis Cache
     participant Q as Message Queue
     participant W as Aggregation Worker
-    participant D as MariaDB
+    participant D as ClickHouse
 
     B->>A: POST /access/swipe {userId, doorId, direction: IN}
     A->>R: GET perm:{userId}:{doorId}
@@ -354,7 +354,7 @@ sequenceDiagram
     participant R as Redis Cache
     participant Q as Message Queue
     participant W as Aggregation Worker
-    participant D as MariaDB
+    participant D as ClickHouse
 
     Note over D: ⚠️ Database is DOWN
 
@@ -380,7 +380,7 @@ sequenceDiagram
     participant M as Manager Browser
     participant RA as Report API
     participant RC as Report Cache (Redis)
-    participant D as MariaDB
+    participant D as ClickHouse
 
     M->>RA: GET /reports/department?orgUnitId=X&month=2026-04
     RA->>RA: Resolve org subtree for requesting user
@@ -521,7 +521,7 @@ graph TB
     subgraph Data Tier
         REDIS[(Redis\nCache + Anti-Passback)]
         KAFKA[(Message Queue\nKafka)]
-        PG[(MariaDB\nPrimary DB)]
+        PG[(ClickHouse\nPrimary DB)]
         RCACHE[(Redis\nReport Cache)]
     end
 
@@ -544,7 +544,7 @@ graph TB
 - Access API, Report API, and Aggregation Workers are independently scalable deployments
 - Redis is used for two separate concerns (permission/passback cache AND report cache) — can be the same cluster with separate key namespaces
 - Message Queue (Kafka recommended) provides durability via log-based storage, ensuring no events are lost even during consumer downtime
-- MariaDB can be sharded by `org_unit_id` or by time range for large-scale deployments, as noted in meeting notes
+- ClickHouse can be sharded by `org_unit_id` or by time range for large-scale deployments, as noted in meeting notes
 
 -----
 

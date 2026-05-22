@@ -6,10 +6,12 @@ import (
 )
 
 type Config struct {
-	HTTPAddr     string
-	DBDSN        string
-	KafkaBrokers []string
-	KafkaTopic   string
+	HTTPAddr         string
+	ClickHouseAddr   string
+	ClickHouseUser   string
+	ClickHousePass   string
+	KafkaBrokers     []string
+	KafkaTopic       string
 }
 
 func Load() Config {
@@ -17,10 +19,15 @@ func Load() Config {
 	if addr == "" {
 		addr = ":8081"
 	}
-	dsn := os.Getenv("DB_DSN")
-	if dsn == "" {
-		dsn = "access:access@tcp(localhost:3307)/access_control?parseTime=true"
+	chAddr := os.Getenv("CLICKHOUSE_ADDR")
+	if chAddr == "" {
+		chAddr = "localhost:9000"
 	}
+	chUser := os.Getenv("CLICKHOUSE_USER")
+	if chUser == "" {
+		chUser = "default"
+	}
+	chPass := os.Getenv("CLICKHOUSE_PASSWORD")
 	brokers := os.Getenv("KAFKA_BROKERS")
 	if brokers == "" {
 		brokers = "localhost:9092"
@@ -30,9 +37,11 @@ func Load() Config {
 		topic = "permission-events"
 	}
 	return Config{
-		HTTPAddr:     addr,
-		DBDSN:        dsn,
-		KafkaBrokers: strings.Split(brokers, ","),
-		KafkaTopic:   topic,
+		HTTPAddr:       addr,
+		ClickHouseAddr: chAddr,
+		ClickHouseUser: chUser,
+		ClickHousePass: chPass,
+		KafkaBrokers:   strings.Split(brokers, ","),
+		KafkaTopic:     topic,
 	}
 }

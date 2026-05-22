@@ -9,7 +9,6 @@ type Config struct {
 	KafkaBrokers   []string
 	KafkaTopic     string
 	KafkaGroup     string
-	DBDSN          string
 	ClickHouseAddr string
 	ClickHouseUser string
 	ClickHousePass string
@@ -28,10 +27,6 @@ func Load() Config {
 	if group == "" {
 		group = "aggregation-workers"
 	}
-	dsn := os.Getenv("DB_DSN")
-	if dsn == "" {
-		dsn = "access:access@tcp(localhost:3306)/access_control?parseTime=true"
-	}
 	chAddr := os.Getenv("CLICKHOUSE_ADDR")
 	if chAddr == "" {
 		chAddr = "localhost:9000"
@@ -45,10 +40,8 @@ func Load() Config {
 		KafkaBrokers:   strings.Split(brokers, ","),
 		KafkaTopic:     topic,
 		KafkaGroup:     group,
-		DBDSN:          dsn,
 		ClickHouseAddr: chAddr,
 		ClickHouseUser: chUser,
 		ClickHousePass: chPass,
 	}
 }
-

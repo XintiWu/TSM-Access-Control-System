@@ -40,3 +40,24 @@ SELECT
 FROM access_control.inout_events
 WHERE status = 'ALLOW'
 GROUP BY org_unit_id, report_date;
+
+-- Master data: org tree (read-mostly)
+CREATE TABLE IF NOT EXISTS access_control.org_unit (
+    id UUID,
+    name String,
+    parent_id Nullable(UUID),
+    depth UInt8,
+    materialized_path String
+) ENGINE = MergeTree()
+ORDER BY materialized_path;
+
+-- Master data: employees (ban/unban via ReplacingMergeTree)
+CREATE TABLE IF NOT EXISTS access_control.employee (
+    id UUID,
+    name String,
+    card_uid Nullable(String),
+    is_active UInt8,
+    org_unit_id Nullable(UUID),
+    updated_at DateTime64(3, 'UTC')
+) ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY id;

@@ -22,7 +22,7 @@ func main() {
 	var repo *repository.EmployeeRepository
 	var err error
 	for i := 0; i < 30; i++ {
-		repo, err = repository.NewEmployeeRepository(cfg.DBDSN)
+		repo, err = repository.NewEmployeeRepository(cfg.ClickHouseAddr, cfg.ClickHouseUser, cfg.ClickHousePass)
 		if err == nil {
 			break
 		}

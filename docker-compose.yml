@@ -9,24 +9,6 @@ services:
       timeout: 3s
       retries: 5
 
-  mariadb:
-    image: mariadb:11
-    environment:
-      MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: access_control
-      MARIADB_USER: access
-      MARIADB_PASSWORD: access
-    ports:
-      - "3307:3306"
-    volumes:
-      - mariadb_data:/var/lib/mysql
-      - ./migrations:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   kafka:
     image: apache/kafka:3.7.0
     hostname: kafka
@@ -51,6 +33,24 @@ services:
       retries: 15
       start_period: 40s
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: clickhouse
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: password123
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--password", "password123", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   access-api:
     build:
       context: ./access-api
@@ -62,13 +62,15 @@ services:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: inout-events
-      DB_DSN: access:access@tcp(mariadb:3306)/access_control?parseTime=true
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: password123
     depends_on:
       redis:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      mariadb:
+      clickhouse:
         condition: service_healthy
 
   aggregation-worker:
@@ -79,18 +81,14 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: inout-events
       KAFKA_GROUP: aggregation-workers
-      DB_DSN: access:access@tcp(mariadb:3306)/access_control?parseTime=true
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: password123
     depends_on:
       kafka:
         condition: service_healthy
-      mariadb:
-        condition: service_healthy
       clickhouse:
         condition: service_healthy
-
 
   admin-api:
     build:
@@ -100,13 +98,15 @@ services:
       - "8081:8081"
     environment:
       HTTP_ADDR: ":8081"
-      DB_DSN: access:access@tcp(mariadb:3306)/access_control?parseTime=true
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: password123
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: permission-events
     depends_on:
       kafka:
         condition: service_healthy
-      mariadb:
+      clickhouse:
         condition: service_healthy
 
   cache-invalidation-worker:
@@ -133,7 +133,6 @@ services:
     environment:
       HTTP_ADDR: ":8082"
       REDIS_ADDR: redis:6379
-      DB_DSN: access:access@tcp(mariadb:3306)/access_control?parseTime=true
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: password123
@@ -143,28 +142,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      mariadb:
-        condition: service_healthy
       clickhouse:
         condition: service_healthy
-
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.3-alpine
-    container_name: clickhouse
-    environment:
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: password123
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
 
   prometheus:
     image: prom/prometheus:v2.52.0
@@ -194,6 +173,4 @@ services:
       - prometheus
 
 volumes:
-  mariadb_data:
   clickhouse_data:
-

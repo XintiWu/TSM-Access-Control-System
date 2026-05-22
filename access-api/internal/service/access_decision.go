@@ -25,7 +25,7 @@ type CacheStore interface {
 	SetCardMapping(ctx context.Context, cardUID, userID string) error
 }
 
-// DBStore abstracts MariaDB queries used only when Redis is down (fallback path).
+// DBStore abstracts ClickHouse employee queries used only when Redis is down (fallback path).
 type DBStore interface {
 	IsActive(ctx context.Context, userID string) (bool, error)
 	LookupCardUID(ctx context.Context, cardUID string) (string, error)
