@@ -104,29 +104,76 @@ func (r *OrgRepository) GetSubtreeIDs(ctx context.Context, orgUnitID string) ([]
 	return ids, rows.Err()
 }
 
-// GetEmployeeOrgUnitID returns the org_unit_id for the given employee.
-func (r *OrgRepository) GetEmployeeOrgUnitID(ctx context.Context, employeeID string) (string, error) {
+// EmployeeInfo holds org placement and report role for authorization.
+type EmployeeInfo struct {
+	OrgUnitID  string
+	ReportRole string
+}
+
+// GetEmployeeDisplayName returns the latest employee name from master data.
+func (r *OrgRepository) GetEmployeeDisplayName(ctx context.Context, employeeID string) (string, error) {
 	id, err := uuid.Parse(employeeID)
 	if err != nil {
 		return "", err
 	}
-	var count uint64
-	if err := r.chConn.QueryRow(ctx, `SELECT count() FROM employee WHERE id = ?`, id).Scan(&count); err != nil {
-		return "", err
-	}
-	if count == 0 {
-		return "", nil
-	}
-	var orgUnitID *uuid.UUID
+	var name string
 	err = r.chConn.QueryRow(ctx, `
-		SELECT argMax(org_unit_id, updated_at) FROM employee WHERE id = ? GROUP BY id`, id).Scan(&orgUnitID)
+		SELECT argMax(name, updated_at) FROM employee WHERE id = ? GROUP BY id`, id).Scan(&name)
 	if err != nil {
 		return "", err
 	}
-	if orgUnitID == nil {
+	return name, nil
+}
+
+// GetEmployeeInfo returns org_unit_id and report_role for the given employee.
+func (r *OrgRepository) GetEmployeeInfo(ctx context.Context, employeeID string) (*EmployeeInfo, error) {
+	id, err := uuid.Parse(employeeID)
+	if err != nil {
+		return nil, err
+	}
+	var count uint64
+	if err := r.chConn.QueryRow(ctx, `SELECT count() FROM employee WHERE id = ?`, id).Scan(&count); err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, nil
+	}
+	var orgUnitID *uuid.UUID
+	var role string
+	err = r.chConn.QueryRow(ctx, `
+		SELECT argMax(org_unit_id, updated_at), argMax(report_role, updated_at)
+		FROM employee WHERE id = ? GROUP BY id`, id).Scan(&orgUnitID, &role)
+	if err != nil {
+		return nil, err
+	}
+	info := &EmployeeInfo{ReportRole: role}
+	if orgUnitID != nil {
+		info.OrgUnitID = orgUnitID.String()
+	}
+	return info, nil
+}
+
+// GetEmployeeOrgUnitID returns the org_unit_id for the given employee.
+func (r *OrgRepository) GetEmployeeOrgUnitID(ctx context.Context, employeeID string) (string, error) {
+	info, err := r.GetEmployeeInfo(ctx, employeeID)
+	if err != nil {
+		return "", err
+	}
+	if info == nil {
 		return "", nil
 	}
-	return orgUnitID.String(), nil
+	return info.OrgUnitID, nil
+}
+
+// GetRootOrgUnitID returns the company root (depth = 0), used for CEO/CFO scope hints.
+func (r *OrgRepository) GetRootOrgUnitID(ctx context.Context) (string, error) {
+	var id uuid.UUID
+	err := r.chConn.QueryRow(ctx, `
+		SELECT id FROM org_unit WHERE depth = 0 ORDER BY materialized_path LIMIT 1`).Scan(&id)
+	if err != nil {
+		return "", err
+	}
+	return id.String(), nil
 }
 
 // IsInSubtree checks whether targetOrgUnitID is a descendant (or equal) of requesterOrgUnitID.

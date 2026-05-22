@@ -1,4 +1,4 @@
-.PHONY: up down build seed migrate demo demo-ban demo-report swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo
+.PHONY: up down build seed migrate demo demo-ban demo-report demo-full demo-passback-alert swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo
 
 # Install repo git hooks (strips Cursor Co-authored-by from commits)
 hooks:
@@ -18,6 +18,7 @@ up:
 	$(COMPOSE) restart cache-invalidation-worker
 	@sleep 5
 	@$(MAKE) schema-ch
+	@$(MAKE) schema-ch-migrate
 	@$(MAKE) seed-ch
 	@$(MAKE) seed
 
@@ -38,6 +39,11 @@ schema-ch:
 	@test -f clickhouse/init.sql
 	$(COMPOSE) exec -T clickhouse clickhouse-client --password password123 --multiquery < clickhouse/init.sql
 	@echo "ClickHouse schema applied"
+
+schema-ch-migrate:
+	@test -f clickhouse/migrate-analytics.sql
+	$(COMPOSE) exec -T clickhouse clickhouse-client --password password123 --multiquery < clickhouse/migrate-analytics.sql
+	@echo "ClickHouse analytics migration applied"
 
 # Load demo org/employee into ClickHouse (idempotent TRUNCATE + INSERT).
 seed-ch:
@@ -87,7 +93,17 @@ verify-pipeline:
 	@./scripts/verify-pipeline.sh
 
 demo-report:
+	@chmod +x scripts/demo-report.sh
 	@./scripts/demo-report.sh
+
+# Bulk swipe traffic → ClickHouse → CSV/PDF reports (see scripts/demo-full-flow.sh)
+demo-full:
+	@chmod +x scripts/demo-full-flow.sh
+	@./scripts/demo-full-flow.sh
+
+demo-passback-alert:
+	@chmod +x scripts/demo-passback-alert.sh
+	@./scripts/demo-passback-alert.sh
 
 logs:
 	$(COMPOSE) logs -f access-api admin-api aggregation-worker cache-invalidation-worker report-api

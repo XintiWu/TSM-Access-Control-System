@@ -1,0 +1,10 @@
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: security-slack
+    group_by: ['alertname']
+    routes:
+      - receiver: security-slack
+        matchers:
+          - severity = critical

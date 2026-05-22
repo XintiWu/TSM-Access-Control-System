@@ -106,21 +106,27 @@ Slow-path reporting backed entirely by **ClickHouse** (events, org tree, employe
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/reports/personal` | Personal attendance (`startDate`, `endDate`) |
-| GET | `/reports/department` | Department summary (`orgUnitId`, date range, `granularity`) |
-| GET | `/reports/audit` | Paginated audit log |
-| GET | `/reports/export` | Sync download **CSV or PDF** (`format=csv|pdf`, `type=events|personal|department`) |
-| POST | `/reports/export/jobs` | Async export (JSON body, returns `jobId`) |
-| GET | `/reports/export/jobs/:jobId` | Poll/download completed export |
+| GET | `/reports/personal` | Personal attendance (`startDate`, `endDate`) — all roles |
+| GET | `/reports/department` | Department summary (`orgUnitId`, `granularity=daily\|weekly\|monthly`) — managers+ |
+| GET | `/reports/audit` | Raw audit log (`status`, `sourceIp` in response) — managers see subtree; employees see self |
+| GET | `/reports/analytics/door-heatmap` | Real-time door swipe ranking (`minutes`, default 60) |
+| GET | `/reports/analytics/attendance-trends` | Avg hours + late rate time series for charts |
+| GET | `/reports/export` | Sync **CSV or PDF** (`format`, `type=events\|personal\|department`) |
+| POST | `/reports/export/jobs` | Async export |
+| GET | `/reports/export/jobs/:jobId` | Poll/download export |
 
-All endpoints require header **`X-User-ID`** (requester employee UUID).
+All endpoints require **`X-User-ID`**. Scope uses `materialized_path` org subtree + `employee.report_role` (`CEO`, `CFO`, `VP`, `DIRECTOR`, `TEAM_MANAGER`, `EMPLOYEE`).
+
+Department metrics use **`pre_aggregated_reports`** (MV) for entry/exit counts; avg hours and late rate (first ALLOW IN after **09:00 UTC**) are computed from `inout_events`.
+
+**Charts UI:** http://localhost:8082/ui/ — bar/line charts for department, door heatmap, attendance trends (role-based tabs).
 
 ```bash
-make demo-report          # full report API walkthrough
-make report-export-pdf    # quick department PDF download
+make demo-full             # bulk swipe → reports + CSV/PDF
+make demo-report           # roles, analytics, audit sourceIp, PDF/CSV
+make demo-passback-alert   # 55× ANTI_PASSBACK → Grafana/Prometheus alert
+make report-export-pdf     # quick department PDF (use MANAGER_ID in Makefile if needed)
 ```
-
-Demo org unit: `a0000000-0000-0000-0000-000000000003` (Team-A).
 
 
 ## Observability (Prometheus + Grafana)
@@ -130,19 +136,23 @@ After `make up`, monitoring stacks start with the rest of the services:
 | Service | URL | Notes |
 |---------|-----|-------|
 | Grafana | http://localhost:3001 | Login `admin` / `admin` |
-| Prometheus | http://localhost:9090 | Scrapes `access-api:8080/metrics` |
-| Access API metrics | http://localhost:8080/metrics | Raw Prometheus exposition |
+| Prometheus | http://localhost:9090 | Scrapes access-api + report-api |
+| Access API metrics | http://localhost:8080/metrics | Swipe QPS / latency |
+| Report API metrics | http://localhost:8082/metrics | `report_passback_deny_1m` (anti-passback alert) |
 
-**Dashboard:** *Access Control — Shift Change Monitor* (folder: Access Control) — QPS, p99 latency, ALLOW/DENY, deny reasons.
+**Dashboards** (folder: Access Control):
 
-Generate a traffic spike for the charts:
+- *Shift Change Monitor* — QPS, p99, ALLOW/DENY (Prometheus)
+- *Access Analytics* — door heatmap, monthly avg hours / late rate (ClickHouse), passback spike stat
+
+**Alerting:** Prometheus rule + Grafana alert when `report_passback_deny_1m_max >= 50`. Configure Slack in Grafana → Alerting → Contact points (`security-slack`).
 
 ```bash
 make load-demo
-# or: make load-demo LOAD_COUNT=500 LOAD_INTERVAL=10ms
+make demo-passback-alert   # trigger passback spike for alert demo
 ```
 
-Config lives under `monitoring/` (Prometheus scrape + Grafana provisioning).
+Config: `monitoring/` (Prometheus, Grafana + ClickHouse plugin, provisioning).
 
 ## Tests
 
@@ -155,10 +165,13 @@ make verify-pipeline       # shell script: swipe + poll ClickHouse
 
 ## Demo UUIDs (after `make seed`)
 
-| Role | UUID |
-|------|------|
-| Normal user | `22222222-2222-2222-2222-222222222222` |
-| Banned user (DB seed; ban via Admin for Redis) | `00000000-0000-0000-0000-000000000099` |
-| Door | `11111111-1111-1111-1111-111111111111` |
+| Role | UUID | `report_role` |
+|------|------|---------------|
+| CEO | `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa` | CEO |
+| VP Engineering | `bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb` | VP |
+| Team-A Manager | `cccccccc-cccc-cccc-cccc-cccccccccccc` | TEAM_MANAGER |
+| Demo employee | `22222222-2222-2222-2222-222222222222` | EMPLOYEE |
+| Banned user | `00000000-0000-0000-0000-000000000099` | EMPLOYEE |
+| Door (main gate) | `11111111-1111-1111-1111-111111111111` | — |
 
 Ban flow no longer seeds `perm:denied` in Redis — use `make ban` or `make demo-ban`.

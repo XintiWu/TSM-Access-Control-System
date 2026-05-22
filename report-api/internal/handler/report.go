@@ -11,9 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/tsmc/report-api/internal/auth"
+	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/model"
 	"github.com/tsmc/report-api/internal/repository"
-	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/service"
 )
 
@@ -41,28 +42,28 @@ func NewReportHandler(svc *service.ReportService, orgRepo *repository.OrgReposit
 	return &ReportHandler{svc: svc, orgRepo: orgRepo}
 }
 
-// resolveRequester extracts user identity from X-User-ID header and resolves their org_unit.
-func (h *ReportHandler) resolveRequester(c *gin.Context) (userID, orgUnitID string, ok bool) {
+// resolveRequester extracts user identity, org unit, and report role from X-User-ID.
+func (h *ReportHandler) resolveRequester(c *gin.Context) (userID, orgUnitID string, role auth.ReportRole, ok bool) {
 	userID = c.GetHeader("X-User-ID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing X-User-ID header"})
-		return "", "", false
+		return "", "", "", false
 	}
 	if _, err := uuid.Parse(userID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid X-User-ID"})
-		return "", "", false
+		return "", "", "", false
 	}
 
-	orgUnitID, err := h.orgRepo.GetEmployeeOrgUnitID(c.Request.Context(), userID)
+	info, err := h.orgRepo.GetEmployeeInfo(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database unavailable"})
-		return "", "", false
+		return "", "", "", false
 	}
-	if orgUnitID == "" {
+	if info == nil || info.OrgUnitID == "" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "employee has no org unit assigned"})
-		return "", "", false
+		return "", "", "", false
 	}
-	return userID, orgUnitID, true
+	return userID, info.OrgUnitID, auth.ParseRole(info.ReportRole), true
 }
 
 // PersonalReport handles GET /reports/personal
@@ -72,7 +73,7 @@ func (h *ReportHandler) PersonalReport(c *gin.Context) {
 		requestLatency.WithLabelValues("personal").Observe(float64(time.Since(start).Milliseconds()))
 	}()
 
-	userID, _, ok := h.resolveRequester(c)
+	userID, _, _, ok := h.resolveRequester(c)
 	if !ok {
 		requestTotal.WithLabelValues("personal", "4xx").Inc()
 		return
@@ -103,9 +104,14 @@ func (h *ReportHandler) DepartmentReport(c *gin.Context) {
 		requestLatency.WithLabelValues("department").Observe(float64(time.Since(start).Milliseconds()))
 	}()
 
-	_, orgUnitID, ok := h.resolveRequester(c)
+	_, orgUnitID, role, ok := h.resolveRequester(c)
 	if !ok {
 		requestTotal.WithLabelValues("department", "4xx").Inc()
+		return
+	}
+	if !role.CanViewDepartmentReports() {
+		requestTotal.WithLabelValues("department", "403").Inc()
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied: insufficient report role"})
 		return
 	}
 
@@ -139,7 +145,7 @@ func (h *ReportHandler) AuditLog(c *gin.Context) {
 		requestLatency.WithLabelValues("audit").Observe(float64(time.Since(start).Milliseconds()))
 	}()
 
-	_, orgUnitID, ok := h.resolveRequester(c)
+	userID, orgUnitID, role, ok := h.resolveRequester(c)
 	if !ok {
 		requestTotal.WithLabelValues("audit", "4xx").Inc()
 		return
@@ -152,7 +158,7 @@ func (h *ReportHandler) AuditLog(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.svc.GetAuditLog(c.Request.Context(), req, orgUnitID)
+	resp, err := h.svc.GetAuditLog(c.Request.Context(), req, userID, orgUnitID, role)
 	if err != nil {
 		requestTotal.WithLabelValues("audit", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -170,7 +176,7 @@ func (h *ReportHandler) Export(c *gin.Context) {
 		requestLatency.WithLabelValues("export").Observe(float64(time.Since(start).Milliseconds()))
 	}()
 
-	userID, orgUnitID, ok := h.resolveRequester(c)
+	userID, orgUnitID, role, ok := h.resolveRequester(c)
 	if !ok {
 		requestTotal.WithLabelValues("export", "4xx").Inc()
 		return
@@ -182,8 +188,17 @@ func (h *ReportHandler) Export(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	reportType := req.Type
+	if reportType == "" {
+		reportType = "events"
+	}
+	if reportType != "personal" && !role.CanViewDepartmentReports() {
+		requestTotal.WithLabelValues("export", "403").Inc()
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied: insufficient report role"})
+		return
+	}
 
-	data, ext, err := h.svc.ExportSync(c.Request.Context(), req, userID, orgUnitID)
+	data, ext, err := h.svc.ExportSync(c.Request.Context(), req, userID, orgUnitID, role)
 	if err != nil {
 		if strings.Contains(err.Error(), "access denied") {
 			requestTotal.WithLabelValues("export", "403").Inc()
@@ -195,10 +210,6 @@ func (h *ReportHandler) Export(c *gin.Context) {
 		return
 	}
 
-	reportType := req.Type
-	if reportType == "" {
-		reportType = "events"
-	}
 	filename := fmt.Sprintf("access-report-%s-%s-%s%s", reportType, req.StartDate, req.EndDate, ext)
 	if req.Format == "pdf" {
 		c.Header("Content-Type", "application/pdf")
@@ -217,7 +228,7 @@ func (h *ReportHandler) ExportJobCreate(c *gin.Context) {
 		requestLatency.WithLabelValues("export_job").Observe(float64(time.Since(start).Milliseconds()))
 	}()
 
-	userID, orgUnitID, ok := h.resolveRequester(c)
+	userID, orgUnitID, role, ok := h.resolveRequester(c)
 	if !ok {
 		requestTotal.WithLabelValues("export_job", "4xx").Inc()
 		return
@@ -240,8 +251,13 @@ func (h *ReportHandler) ExportJobCreate(c *gin.Context) {
 	if reportType == "" {
 		reportType = "events"
 	}
+	if reportType != "personal" && !role.CanViewDepartmentReports() {
+		requestTotal.WithLabelValues("export_job", "403").Inc()
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied: insufficient report role"})
+		return
+	}
 	jobID := h.svc.Jobs().Create(req.Format, reportType)
-	h.svc.RunExportJob(jobID, req, userID, orgUnitID)
+	h.svc.RunExportJob(jobID, req, userID, orgUnitID, role)
 
 	requestTotal.WithLabelValues("export_job", "202").Inc()
 	c.JSON(http.StatusAccepted, gin.H{"jobId": jobID, "status": "pending", "format": req.Format, "type": reportType})
@@ -288,5 +304,67 @@ func (h *ReportHandler) ExportJobGet(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, job)
+}
+
+// DoorHeatmap handles GET /reports/analytics/door-heatmap
+func (h *ReportHandler) DoorHeatmap(c *gin.Context) {
+	start := time.Now()
+	defer func() {
+		requestLatency.WithLabelValues("door_heatmap").Observe(float64(time.Since(start).Milliseconds()))
+	}()
+
+	_, _, role, ok := h.resolveRequester(c)
+	if !ok {
+		requestTotal.WithLabelValues("door_heatmap", "4xx").Inc()
+		return
+	}
+	var req model.DoorHeatmapRequest
+	_ = c.ShouldBindQuery(&req)
+	resp, err := h.svc.GetDoorHeatmap(c.Request.Context(), req.Minutes, role)
+	if err != nil {
+		if strings.Contains(err.Error(), "access denied") {
+			requestTotal.WithLabelValues("door_heatmap", "403").Inc()
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		requestTotal.WithLabelValues("door_heatmap", "500").Inc()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	requestTotal.WithLabelValues("door_heatmap", "200").Inc()
+	c.JSON(http.StatusOK, resp)
+}
+
+// AttendanceTrends handles GET /reports/analytics/attendance-trends
+func (h *ReportHandler) AttendanceTrends(c *gin.Context) {
+	start := time.Now()
+	defer func() {
+		requestLatency.WithLabelValues("attendance_trends").Observe(float64(time.Since(start).Milliseconds()))
+	}()
+
+	_, orgUnitID, role, ok := h.resolveRequester(c)
+	if !ok {
+		requestTotal.WithLabelValues("attendance_trends", "4xx").Inc()
+		return
+	}
+	var req model.AttendanceTrendsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		requestTotal.WithLabelValues("attendance_trends", "400").Inc()
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := h.svc.GetAttendanceTrends(c.Request.Context(), req, orgUnitID, role)
+	if err != nil {
+		if strings.Contains(err.Error(), "access denied") {
+			requestTotal.WithLabelValues("attendance_trends", "403").Inc()
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		requestTotal.WithLabelValues("attendance_trends", "500").Inc()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	requestTotal.WithLabelValues("attendance_trends", "200").Inc()
+	c.JSON(http.StatusOK, resp)
 }
 

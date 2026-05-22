@@ -11,6 +11,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/tsmc/report-api/internal/auth"
 	"github.com/tsmc/report-api/internal/cache"
 	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/model"
@@ -184,6 +185,9 @@ func (s *ReportService) GetDepartmentReport(ctx context.Context, req model.Depar
 
 	// Build periods based on granularity
 	periods := buildPeriods(aggRows, granularity, req.StartDate, req.EndDate)
+	if dailyTrends, err := s.reportRepo.GetAttendanceTrends(ctx, subtreeIDs, req.StartDate, req.EndDate); err == nil {
+		periods = repository.MergeTrendsIntoPeriods(periods, dailyTrends, granularity)
+	}
 
 	// Build sub-unit summaries (direct children only)
 	childUnits, err := s.orgRepo.GetChildUnits(ctx, req.OrgUnitID)
@@ -347,11 +351,21 @@ func groupByMonth(rows []model.AggregatedRow, startDate, endDate string) []model
 // ────────────────────────────────────────
 
 // GetAuditLog returns a paginated list of raw events filtered by the requester's org subtree.
-func (s *ReportService) GetAuditLog(ctx context.Context, req model.AuditLogRequest, requesterOrgUnitID string) (*model.AuditLogResponse, error) {
-	// Get subtree for permission filtering
-	subtreeIDs, err := s.orgRepo.GetSubtreeIDs(ctx, requesterOrgUnitID)
-	if err != nil {
-		return nil, fmt.Errorf("get subtree: %w", err)
+func (s *ReportService) GetAuditLog(ctx context.Context, req model.AuditLogRequest, requesterUserID, requesterOrgUnitID string, role auth.ReportRole) (*model.AuditLogResponse, error) {
+	var subtreeIDs []string
+	var err error
+	if role.CanViewFullAudit() {
+		subtreeIDs, err = s.orgRepo.GetSubtreeIDs(ctx, requesterOrgUnitID)
+		if err != nil {
+			return nil, fmt.Errorf("get subtree: %w", err)
+		}
+	} else {
+		// Employees may only audit their own swipe events.
+		req.EmployeeID = requesterUserID
+		subtreeIDs, err = s.orgRepo.GetSubtreeIDs(ctx, requesterOrgUnitID)
+		if err != nil {
+			return nil, fmt.Errorf("get subtree: %w", err)
+		}
 	}
 
 	if req.Page < 1 {
@@ -390,6 +404,7 @@ func (s *ReportService) GetAuditLog(ctx context.Context, req model.AuditLogReque
 		if e.Reason != nil {
 			ae.Reason = *e.Reason
 		}
+		ae.SourceIP = e.SourceIP
 		auditEvents = append(auditEvents, ae)
 	}
 
@@ -406,7 +421,10 @@ func (s *ReportService) GetAuditLog(ctx context.Context, req model.AuditLogReque
 // ────────────────────────────────────────
 
 // ExportCSV generates a CSV file for events within the requester's org subtree.
-func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, requesterOrgUnitID string) (io.Reader, error) {
+func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, requesterOrgUnitID string, role auth.ReportRole) (io.Reader, error) {
+	if !role.CanViewDepartmentReports() {
+		return nil, fmt.Errorf("access denied: role %s cannot export org reports", role)
+	}
 	// Permission check
 	inSubtree, err := s.orgRepo.IsInSubtree(ctx, requesterOrgUnitID, req.OrgUnitID)
 	if err != nil {
@@ -430,7 +448,7 @@ func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, 
 	w := csv.NewWriter(&buf)
 
 	// Header
-	_ = w.Write([]string{"EventID", "EmployeeID", "DoorID", "Direction", "EventTime", "Status", "Reason"})
+	_ = w.Write([]string{"EventID", "EmployeeID", "DoorID", "Direction", "EventTime", "Status", "Reason", "SourceIP"})
 
 	for _, e := range events {
 		reason := ""
@@ -445,6 +463,7 @@ func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, 
 			e.EventTime.Format(time.RFC3339),
 			e.Status,
 			reason,
+			e.SourceIP,
 		})
 	}
 	w.Flush()

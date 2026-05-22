@@ -1,0 +1,48 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: access-control-security
+    folder: Access Control
+    interval: 1m
+    rules:
+      - uid: anti_passback_spike
+        title: Anti-Passback spike (50+ denies / 1 min)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: report_passback_deny_1m_max
+              instant: true
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [50]
+                    type: gt
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+                  type: query
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: A door recorded 50+ ANTI_PASSBACK denials within one minute
+          description: Check ClickHouse inout_events and door passback configuration.
+        labels:
+          severity: critical
+        notification_settings:
+          receiver: security-slack

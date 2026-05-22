@@ -14,7 +14,7 @@ func EventsDocument(orgUnitName, orgUnitID, startDate, endDate string, events []
 		{Label: "Period", Value: fmt.Sprintf("%s to %s", startDate, endDate)},
 		{Label: "Total Events", Value: fmt.Sprintf("%d", len(events))},
 	}
-	headers := []string{"Event ID", "Employee ID", "Door ID", "Direction", "Event Time", "Status", "Reason"}
+	headers := []string{"Event ID", "Employee ID", "Door ID", "Direction", "Event Time", "Status", "Reason", "Source IP"}
 	rows := make([][]string, 0, len(events))
 	for _, e := range events {
 		reason := ""
@@ -23,7 +23,7 @@ func EventsDocument(orgUnitName, orgUnitID, startDate, endDate string, events []
 		}
 		rows = append(rows, []string{
 			e.EventID, e.EmployeeID, e.DoorID, e.Direction,
-			e.EventTime.Format(time.RFC3339), e.Status, reason,
+			e.EventTime.Format(time.RFC3339), e.Status, reason, e.SourceIP,
 		})
 	}
 	return Document{
@@ -63,13 +63,14 @@ func DepartmentDocument(resp *model.DepartmentReportResponse) Document {
 		{Label: "Total Entries", Value: fmt.Sprintf("%d", resp.Summary.TotalEntries)},
 		{Label: "Total Exits", Value: fmt.Sprintf("%d", resp.Summary.TotalExits)},
 	}
-	headers := []string{"Period Start", "Period End", "Entries", "Exits", "Unique Employees", "Avg Hours"}
+	headers := []string{"Period Start", "Period End", "Entries", "Exits", "Unique Employees", "Avg Hours", "Late Rate"}
 	rows := make([][]string, 0, len(resp.Periods))
 	for _, p := range resp.Periods {
 		rows = append(rows, []string{
 			p.PeriodStart, p.PeriodEnd,
 			fmt.Sprintf("%d", p.TotalEntries), fmt.Sprintf("%d", p.TotalExits),
 			fmt.Sprintf("%d", p.UniqueEmployees), fmt.Sprintf("%.2f", p.AvgHours),
+			fmt.Sprintf("%.2f%%", p.LateRate*100),
 		})
 	}
 	return Document{

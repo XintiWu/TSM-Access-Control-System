@@ -209,6 +209,102 @@ func scanEvents(rows driver.Rows) ([]model.InOutEvent, error) {
 	return events, rows.Err()
 }
 
+// GetSecurityDenySummary counts anti-passback and permission-denied events in range.
+func (r *InOutRepository) GetSecurityDenySummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.SecurityDenySummary, error) {
+	var out model.SecurityDenySummary
+	if len(orgUnitIDs) == 0 {
+		return out, nil
+	}
+	var orgUUIDs []uuid.UUID
+	for _, id := range orgUnitIDs {
+		u, err := uuid.Parse(id)
+		if err == nil {
+			orgUUIDs = append(orgUUIDs, u)
+		}
+	}
+	query := `
+		SELECT
+			toUInt64(countIf(status = 'DENY' AND reason = 'ANTI_PASSBACK')),
+			toUInt64(countIf(status = 'DENY' AND reason = 'PERMISSION_DENIED'))
+		FROM inout_events
+		WHERE event_time >= toDateTime64(?, 3, 'UTC')
+		  AND event_time < addDays(toDateTime64(?, 3, 'UTC'), 1)
+		  AND org_unit_id IN (?)`
+	var ap, pd uint64
+	err := r.chConn.QueryRow(ctx, query, startDate, endDate, orgUUIDs).Scan(&ap, &pd)
+	out.AntiPassbackDenies = int(ap)
+	out.PermissionDenied = int(pd)
+	return out, err
+}
+
+// GetEmployeeReportRows aggregates per-employee swipe, hours, and deny counts.
+func (r *InOutRepository) GetEmployeeReportRows(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.EmployeeReportRow, error) {
+	if len(orgUnitIDs) == 0 {
+		return nil, nil
+	}
+	var orgUUIDs []uuid.UUID
+	for _, id := range orgUnitIDs {
+		u, err := uuid.Parse(id)
+		if err == nil {
+			orgUUIDs = append(orgUUIDs, u)
+		}
+	}
+	query := `
+		SELECT
+			toString(employee_id) AS employee_id,
+			toUInt64(sum(day_swipes)) AS total_swipes,
+			toFloat64(sum(daily_hours)) AS total_hours,
+			toUInt64(sum(passback_denies)) AS passback_denies,
+			toUInt64(sum(permission_denies)) AS permission_denies,
+			toUInt64(sum(missing_punch)) AS missing_punch_days
+		FROM (
+			SELECT
+				employee_id,
+				toDate(event_time) AS day,
+				count() AS day_swipes,
+				countIf(status = 'DENY' AND reason = 'ANTI_PASSBACK') AS passback_denies,
+				countIf(status = 'DENY' AND reason = 'PERMISSION_DENIED') AS permission_denies,
+				multiIf(
+					countIf(status = 'ALLOW' AND direction = 'IN') > 0
+						AND countIf(status = 'ALLOW' AND direction = 'OUT') = 0, 1, 0
+				) AS missing_punch,
+				multiIf(
+					minIf(event_time, status = 'ALLOW' AND direction = 'IN') > toDateTime64(0, 3, 'UTC')
+						AND maxIf(event_time, status = 'ALLOW' AND direction = 'OUT') > toDateTime64(0, 3, 'UTC'),
+					dateDiff('second',
+						minIf(event_time, status = 'ALLOW' AND direction = 'IN'),
+						maxIf(event_time, status = 'ALLOW' AND direction = 'OUT')) / 3600.0,
+					0.0
+				) AS daily_hours
+			FROM inout_events
+			WHERE event_time >= toDateTime64(?, 3, 'UTC')
+			  AND event_time < addDays(toDateTime64(?, 3, 'UTC'), 1)
+			  AND org_unit_id IN (?)
+			GROUP BY employee_id, day
+		)
+		GROUP BY employee_id
+		ORDER BY total_swipes DESC`
+	rows, err := r.chConn.Query(ctx, query, startDate, endDate, orgUUIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var results []model.EmployeeReportRow
+	for rows.Next() {
+		var row model.EmployeeReportRow
+		var swipes, passback, perm, missing uint64
+		if err := rows.Scan(&row.EmployeeID, &swipes, &row.TotalHours, &passback, &perm, &missing); err != nil {
+			return nil, err
+		}
+		row.TotalSwipes = int(swipes)
+		row.AntiPassbackDenies = int(passback)
+		row.PermissionDenied = int(perm)
+		row.MissingPunchDays = int(missing)
+		results = append(results, row)
+	}
+	return results, rows.Err()
+}
+
 // Close closes the database connection.
 func (r *InOutRepository) Close() error {
 	return r.chConn.Close()

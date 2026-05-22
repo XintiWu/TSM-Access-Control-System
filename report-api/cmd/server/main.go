@@ -15,6 +15,7 @@ import (
 	"github.com/tsmc/report-api/internal/config"
 	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/handler"
+	"github.com/tsmc/report-api/internal/metrics"
 	"github.com/tsmc/report-api/internal/repository"
 	"github.com/tsmc/report-api/internal/service"
 )
@@ -64,9 +65,19 @@ func main() {
 	svc := service.NewReportService(orgRepo, reportRepo, inoutRepo, reportCache, jobStore)
 	h := handler.NewReportHandler(svc, orgRepo)
 
+	metricsCtx, metricsCancel := context.WithCancel(context.Background())
+	defer metricsCancel()
+	metrics.StartPassbackPoller(metricsCtx, reportRepo, 15*time.Second)
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger())
+
+	// Interactive charts UI (department / heatmap / attendance / personal)
+	r.Static("/ui", "./report-ui")
+	r.GET("/ui", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/ui/")
+	})
 
 	r.GET("/health", func(c *gin.Context) {
 		if err := orgRepo.Ping(c.Request.Context()); err != nil {
@@ -85,6 +96,8 @@ func main() {
 		api.GET("/export", h.Export)
 		api.POST("/export/jobs", h.ExportJobCreate)
 		api.GET("/export/jobs/:jobId", h.ExportJobGet)
+		api.GET("/analytics/door-heatmap", h.DoorHeatmap)
+		api.GET("/analytics/attendance-trends", h.AttendanceTrends)
 	}
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}

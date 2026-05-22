@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/google/uuid"
 	"github.com/tsmc/report-api/internal/model"
 )
 
@@ -35,23 +34,148 @@ func NewReportRepository(chAddr, chUser, chPass string) (*ReportRepository, erro
 	return &ReportRepository{chConn: chConn}, nil
 }
 
-// GetAggregated reads pre-aggregated reports from ClickHouse dynamically.
+// GetAggregated reads pre_aggregated_reports (MV-backed) and enriches with live avg hours per day.
 func (r *ReportRepository) GetAggregated(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.AggregatedRow, error) {
 	if len(orgUnitIDs) == 0 {
 		return nil, nil
 	}
 
-	var orgUUIDs []uuid.UUID
-	for _, id := range orgUnitIDs {
-		u, err := uuid.Parse(id)
-		if err == nil {
-			orgUUIDs = append(orgUUIDs, u)
+	query := `
+		SELECT
+			'' AS org_unit_id,
+			toString(report_date) AS report_date,
+			toUInt64(sum(total_entries)) AS total_entries,
+			toUInt64(sum(total_exits)) AS total_exits,
+			toUInt64(uniqMerge(unique_employees)) AS unique_employees
+		FROM pre_aggregated_reports
+		WHERE toString(org_unit_id) IN (?)
+		  AND report_date >= toDate(?)
+		  AND report_date <= toDate(?)
+		GROUP BY report_date
+		ORDER BY report_date ASC`
+
+	rows, err := r.chConn.Query(ctx, query, orgUnitIDs, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	dayTotals := make(map[string]*model.AggregatedRow)
+	var order []string
+	for rows.Next() {
+		var row model.AggregatedRow
+		var totalEntries, totalExits, uniqueEmployees uint64
+		if err := rows.Scan(&row.OrgUnitID, &row.ReportDate, &totalEntries,
+			&totalExits, &uniqueEmployees); err != nil {
+			return nil, err
 		}
+		row.TotalEntries = int(totalEntries)
+		row.TotalExits = int(totalExits)
+		row.UniqueEmployees = int(uniqueEmployees)
+
+		if existing, ok := dayTotals[row.ReportDate]; ok {
+			existing.TotalEntries += row.TotalEntries
+			existing.TotalExits += row.TotalExits
+			existing.UniqueEmployees += row.UniqueEmployees
+		} else {
+			copy := row
+			dayTotals[row.ReportDate] = &copy
+			order = append(order, row.ReportDate)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(order) == 0 {
+		return r.getAggregatedLive(ctx, orgUnitIDs, startDate, endDate)
+	}
+
+	trends, err := r.GetAttendanceTrends(ctx, orgUnitIDs, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	trendMap := make(map[string]float64, len(trends))
+	for _, t := range trends {
+		trendMap[t.PeriodStart] = t.AvgHours
+	}
+
+	var results []model.AggregatedRow
+	for _, d := range order {
+		row := dayTotals[d]
+		if h, ok := trendMap[d]; ok {
+			row.AvgHours = h
+		}
+		results = append(results, *row)
+	}
+	return results, nil
+}
+
+// GetSummary returns aggregated summary using pre_aggregated_reports plus live avg hours / late rate.
+func (r *ReportRepository) GetSummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.DepartmentSummary, error) {
+	var summary model.DepartmentSummary
+	if len(orgUnitIDs) == 0 {
+		return summary, nil
 	}
 
 	query := `
 		SELECT
-			toString(org_unit_id) AS org_unit_id,
+			toUInt64(sum(total_entries)),
+			toUInt64(sum(total_exits)),
+			toUInt64(uniqMerge(unique_employees))
+		FROM pre_aggregated_reports
+		WHERE toString(org_unit_id) IN (?)
+		  AND report_date >= toDate(?)
+		  AND report_date <= toDate(?)`
+
+	var totalEntries, totalExits, uniqueEmployees uint64
+	err := r.chConn.QueryRow(ctx, query, orgUnitIDs, startDate, endDate).Scan(
+		&totalEntries, &totalExits, &uniqueEmployees)
+	if err != nil {
+		return summary, err
+	}
+
+	if totalEntries == 0 && totalExits == 0 {
+		liveRows, lerr := r.getAggregatedLive(ctx, orgUnitIDs, startDate, endDate)
+		if lerr == nil && len(liveRows) > 0 {
+			for _, row := range liveRows {
+				summary.TotalEntries += row.TotalEntries
+				summary.TotalExits += row.TotalExits
+				summary.UniqueEmployees += row.UniqueEmployees
+			}
+		}
+	} else {
+		summary.TotalEntries = int(totalEntries)
+		summary.TotalExits = int(totalExits)
+		summary.UniqueEmployees = int(uniqueEmployees)
+	}
+
+	trends, err := r.GetAttendanceTrends(ctx, orgUnitIDs, startDate, endDate)
+	if err != nil {
+		return summary, err
+	}
+	var sumHours float64
+	var sumLate, sumHead int
+	for _, t := range trends {
+		sumHours += t.AvgHours
+		sumLate += t.LateCount
+		sumHead += t.Headcount
+	}
+	if len(trends) > 0 {
+		summary.AvgHoursPerDay = sumHours / float64(len(trends))
+	}
+	if sumHead > 0 {
+		summary.LateRate = float64(sumLate) / float64(sumHead)
+	}
+
+	return summary, nil
+}
+
+// getAggregatedLive scans inout_events when pre_aggregated_reports has no rows yet.
+func (r *ReportRepository) getAggregatedLive(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.AggregatedRow, error) {
+	query := `
+		SELECT
+			'' AS org_unit_id,
 			toString(date_val) AS report_date,
 			toUInt64(sum(num_ins)) AS total_entries,
 			toUInt64(sum(num_outs)) AS total_exits,
@@ -60,7 +184,6 @@ func (r *ReportRepository) GetAggregated(ctx context.Context, orgUnitIDs []strin
 		FROM (
 			SELECT
 				employee_id,
-				org_unit_id,
 				toDate(event_time) AS date_val,
 				countIf(direction = 'IN') AS num_ins,
 				countIf(direction = 'OUT') AS num_outs,
@@ -70,16 +193,16 @@ func (r *ReportRepository) GetAggregated(ctx context.Context, orgUnitIDs []strin
 					NULL
 				) AS daily_hours
 			FROM inout_events
-			WHERE org_unit_id IN (?)
+			WHERE toString(org_unit_id) IN (?)
 			  AND event_time >= toDateTime64(?, 3, 'UTC')
 			  AND event_time < addDays(toDateTime64(?, 3, 'UTC'), 1)
 			  AND status = 'ALLOW'
-			GROUP BY employee_id, org_unit_id, date_val
+			GROUP BY employee_id, date_val
 		)
-		GROUP BY org_unit_id, date_val
+		GROUP BY date_val
 		ORDER BY date_val ASC`
 
-	rows, err := r.chConn.Query(ctx, query, orgUUIDs, startDate, endDate)
+	rows, err := r.chConn.Query(ctx, query, orgUnitIDs, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
@@ -99,63 +222,6 @@ func (r *ReportRepository) GetAggregated(ctx context.Context, orgUnitIDs []strin
 		results = append(results, row)
 	}
 	return results, rows.Err()
-}
-
-// GetSummary returns a single aggregated summary across all org units and the entire date range from ClickHouse.
-func (r *ReportRepository) GetSummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.DepartmentSummary, error) {
-	var summary model.DepartmentSummary
-	if len(orgUnitIDs) == 0 {
-		return summary, nil
-	}
-
-	var orgUUIDs []uuid.UUID
-	for _, id := range orgUnitIDs {
-		u, err := uuid.Parse(id)
-		if err == nil {
-			orgUUIDs = append(orgUUIDs, u)
-		}
-	}
-
-	query := `
-		SELECT
-			toUInt64(sum(total_entries)),
-			toUInt64(sum(total_exits)),
-			toUInt64(uniq(employee_id)),
-			COALESCE(avg(daily_hours), 0.0) AS avg_hours
-		FROM (
-			SELECT
-				employee_id,
-				toDate(event_time) AS date_val,
-				countIf(direction = 'IN') AS total_entries,
-				countIf(direction = 'OUT') AS total_exits,
-				multiIf(
-					minIf(event_time, direction = 'IN') > toDateTime64(0, 3, 'UTC') AND maxIf(event_time, direction = 'OUT') > toDateTime64(0, 3, 'UTC'),
-					dateDiff('second', minIf(event_time, direction = 'IN'), maxIf(event_time, direction = 'OUT')) / 3600.0,
-					NULL
-				) AS daily_hours
-			FROM inout_events
-			WHERE org_unit_id IN (?)
-			  AND event_time >= toDateTime64(?, 3, 'UTC')
-			  AND event_time < addDays(toDateTime64(?, 3, 'UTC'), 1)
-			  AND status = 'ALLOW'
-			GROUP BY employee_id, date_val
-		)`
-
-	var totalEntries, totalExits, uniqueEmployees uint64
-	var avgHours float64
-
-	err := r.chConn.QueryRow(ctx, query, orgUUIDs, startDate, endDate).Scan(
-		&totalEntries, &totalExits, &uniqueEmployees, &avgHours)
-	if err != nil {
-		return summary, err
-	}
-
-	summary.TotalEntries = int(totalEntries)
-	summary.TotalExits = int(totalExits)
-	summary.UniqueEmployees = int(uniqueEmployees)
-	summary.AvgHoursPerDay = avgHours
-
-	return summary, nil
 }
 
 // Close closes the database connection.

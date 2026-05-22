@@ -83,6 +83,7 @@ type DepartmentSummary struct {
 	TotalExits      int     `json:"totalExits"`
 	UniqueEmployees int     `json:"uniqueEmployees"`
 	AvgHoursPerDay  float64 `json:"avgHoursPerDay"`
+	LateRate        float64 `json:"lateRate"` // fraction 0–1 (first ALLOW IN after 09:00 UTC)
 }
 
 // PeriodReport represents one period (day/week/month) in a department report.
@@ -93,6 +94,7 @@ type PeriodReport struct {
 	TotalExits      int     `json:"totalExits"`
 	UniqueEmployees int     `json:"uniqueEmployees"`
 	AvgHours        float64 `json:"avgHours"`
+	LateRate        float64 `json:"lateRate"`
 }
 
 // SubUnitSummary shows a child org unit's summary inside a department report.
@@ -101,6 +103,33 @@ type SubUnitSummary struct {
 	OrgUnitName  string `json:"orgUnitName"`
 	TotalEntries int    `json:"totalEntries"`
 	TotalExits   int    `json:"totalExits"`
+}
+
+// SecurityDenySummary counts DENY events in a date range for an org subtree.
+type SecurityDenySummary struct {
+	AntiPassbackDenies  int `json:"antiPassbackDenies"`
+	PermissionDenied    int `json:"permissionDenied"` // banned / blacklist attempts
+}
+
+// EmployeeReportRow is per-employee stats for PDF detail tables.
+type EmployeeReportRow struct {
+	EmployeeID          string  `json:"employeeId"`
+	EmployeeName        string  `json:"employeeName"`
+	TotalSwipes         int     `json:"totalSwipes"`
+	TotalHours          float64 `json:"totalHours"`
+	AntiPassbackDenies  int     `json:"antiPassbackDenies"`
+	PermissionDenied    int     `json:"permissionDenied"`
+	MissingPunchDays    int     `json:"missingPunchDays"`
+}
+
+// ReportDetailRow is one line in the structured detail table (dept or employee).
+type ReportDetailRow struct {
+	EntityID     string
+	EntityName   string
+	EntityType   string // Department | Employee
+	TotalSwipes  int
+	TotalHours   float64
+	AnomalyNotes string
 }
 
 // AuditLogResponse is the response for GET /reports/audit.
@@ -120,6 +149,52 @@ type AuditEvent struct {
 	EventTime  string `json:"eventTime"`
 	Status     string `json:"status"`
 	Reason     string `json:"reason,omitempty"`
+	SourceIP   string `json:"sourceIp,omitempty"`
+}
+
+// DoorHeatmapRequest for GET /reports/analytics/door-heatmap
+type DoorHeatmapRequest struct {
+	Minutes int `form:"minutes"` // default 60
+}
+
+// DoorHeatmapResponse lists doors ranked by swipe volume.
+type DoorHeatmapResponse struct {
+	WindowMinutes int              `json:"windowMinutes"`
+	Doors         []DoorTrafficRow `json:"doors"`
+}
+
+// DoorTrafficRow is one door in the heatmap ranking.
+type DoorTrafficRow struct {
+	DoorID     string `json:"doorId"`
+	DoorName   string `json:"doorName"`
+	Site       string `json:"site"`
+	SwipeCount uint64 `json:"swipeCount"`
+}
+
+// AttendanceTrendsRequest for GET /reports/analytics/attendance-trends
+type AttendanceTrendsRequest struct {
+	OrgUnitID   string `form:"orgUnitId" binding:"required,uuid"`
+	StartDate   string `form:"startDate" binding:"required"`
+	EndDate     string `form:"endDate" binding:"required"`
+	Granularity string `form:"granularity"` // daily | weekly | monthly
+}
+
+// AttendanceTrendsResponse is time-series data for charts (avg hours + late rate).
+type AttendanceTrendsResponse struct {
+	OrgUnitID   string             `json:"orgUnitId"`
+	OrgUnitName string             `json:"orgUnitName"`
+	StartDate   string             `json:"startDate"`
+	EndDate     string             `json:"endDate"`
+	Granularity string             `json:"granularity"`
+	Series      []AttendancePoint  `json:"series"`
+}
+
+// AttendancePoint is one point on the attendance trend chart.
+type AttendancePoint struct {
+	PeriodStart string  `json:"periodStart"`
+	PeriodEnd   string  `json:"periodEnd"`
+	AvgHours    float64 `json:"avgHours"`
+	LateRate    float64 `json:"lateRate"`
 }
 
 // ────────────────────────────────────────

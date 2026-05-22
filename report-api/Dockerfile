@@ -9,5 +9,6 @@ FROM alpine:3.20
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=builder /report-api .
+COPY report-ui ./report-ui
 EXPOSE 8082
 CMD ["./report-api"]

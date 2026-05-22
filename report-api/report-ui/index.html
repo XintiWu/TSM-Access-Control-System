@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>門禁報表中心 — TSMC Access Control</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --green: #22c55e;
+      --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "SF Pro Text", "PingFang TC", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%);
+    }
+    header h1 { margin: 0 0 0.25rem; font-size: 1.35rem; font-weight: 600; }
+    header p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      padding: 1rem 1.5rem;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+    }
+    label { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem; }
+    select, button {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.45rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+    button {
+      background: var(--accent);
+      border-color: var(--accent);
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { filter: brightness(1.1); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    main { padding: 1.25rem 1.5rem 2rem; max-width: 1400px; margin: 0 auto; }
+    .role-hint {
+      font-size: 0.8rem;
+      color: var(--amber);
+      margin-bottom: 1rem;
+      padding: 0.6rem 0.85rem;
+      background: rgba(245, 158, 11, 0.08);
+      border-radius: 8px;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+    nav.tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+    nav.tabs button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    nav.tabs button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    section.panel { display: none; }
+    section.panel.active { display: block; }
+    .grid { display: grid; gap: 1rem; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+    }
+    .card h2 { margin: 0 0 0.75rem; font-size: 1rem; font-weight: 600; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .metric {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border);
+    }
+    .metric span { font-size: 0.7rem; color: var(--muted); display: block; }
+    .metric strong { font-size: 1.15rem; }
+    .chart-wrap { position: relative; height: 280px; }
+    .chart-wrap.tall { height: 320px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .err { color: #f87171; font-size: 0.85rem; margin-top: 0.5rem; }
+    .links { margin-top: 1rem; font-size: 0.8rem; color: var(--muted); }
+    .links a { color: var(--accent); }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>門禁報表中心</h1>
+    <p>分層權限（materialized_path + report_role）· 圖表由 Report API 即時繪製</p>
+  </header>
+
+  <div class="toolbar">
+    <div>
+      <label>登入身份（X-User-ID）</label>
+      <select id="roleSelect">
+        <option value="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" data-role="CEO" data-org="a0000000-0000-0000-0000-000000000001">CEO — 全公司</option>
+        <option value="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" data-role="VP" data-org="a0000000-0000-0000-0000-000000000002">VP — Engineering 處</option>
+        <option value="cccccccc-cccc-cccc-cccc-cccccccccccc" data-role="TEAM_MANAGER" data-org="a0000000-0000-0000-0000-000000000003" selected>課長 — Team-A</option>
+        <option value="22222222-2222-2222-2222-222222222222" data-role="EMPLOYEE" data-org="a0000000-0000-0000-0000-000000000003">員工 — 僅本人</option>
+      </select>
+    </div>
+    <div>
+      <label>組織單位（部門報表）</label>
+      <select id="orgSelect">
+        <option value="a0000000-0000-0000-0000-000000000001">TSMC Corp（全公司）</option>
+        <option value="a0000000-0000-0000-0000-000000000002">Engineering</option>
+        <option value="a0000000-0000-0000-0000-000000000003" selected>Team-A</option>
+      </select>
+    </div>
+    <div>
+      <label>時間粒度</label>
+      <select id="granularity">
+        <option value="daily">每日</option>
+        <option value="weekly">每週</option>
+        <option value="monthly" selected>每月</option>
+      </select>
+    </div>
+    <div>
+      <label>開始日期</label>
+      <input type="date" id="startDate" />
+    </div>
+    <div>
+      <label>結束日期</label>
+      <input type="date" id="endDate" />
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button type="button" id="refreshBtn">重新載入圖表</button>
+    </div>
+  </div>
+
+  <main>
+    <div id="roleHint" class="role-hint"></div>
+
+    <nav class="tabs" id="tabNav">
+      <button type="button" data-tab="dept" class="active">部門報表</button>
+      <button type="button" data-tab="heatmap">門禁熱點</button>
+      <button type="button" data-tab="attendance">考勤趨勢</button>
+      <button type="button" data-tab="personal">個人出勤</button>
+    </nav>
+
+    <section id="panel-dept" class="panel active">
+      <div id="ceoOverviewCard" class="card hidden" style="margin-bottom:1rem">
+        <h2>CEO 全廠一頁總覽</h2>
+        <div class="metrics" id="ceoMetrics"></div>
+        <div class="chart-wrap"><canvas id="ceoSubUnitsChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>部門摘要 · GET /reports/department</h2>
+        <div class="metrics" id="deptMetrics"></div>
+        <div id="subUnitsBlock" class="hidden" style="margin-bottom:1rem">
+          <h3 style="font-size:0.95rem;margin:0 0 0.5rem">子部門對比</h3>
+          <div class="chart-wrap"><canvas id="subUnitsChart"></canvas></div>
+        </div>
+        <div class="grid grid-2">
+          <div class="chart-wrap"><canvas id="deptEntriesChart"></canvas></div>
+          <div class="chart-wrap"><canvas id="deptHoursChart"></canvas></div>
+          <div class="chart-wrap"><canvas id="deptLateChart"></canvas></div>
+        </div>
+        <div id="deptErr" class="err"></div>
+      </div>
+    </section>
+
+    <section id="panel-heatmap" class="panel">
+      <div class="card">
+        <h2>廠區門禁熱點（近 1 小時刷卡量）· GET /reports/analytics/door-heatmap</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin:0 0 0.75rem">長條圖顯示各門流量排行；資料來自 ClickHouse 即時事件。</p>
+        <div class="chart-wrap tall"><canvas id="doorHeatmapChart"></canvas></div>
+        <div id="heatmapErr" class="err"></div>
+      </div>
+    </section>
+
+    <section id="panel-attendance" class="panel">
+      <div class="card">
+        <h2>考勤趨勢（平均工時 + 遲到率）· GET /reports/analytics/attendance-trends</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin:0 0 0.75rem">遲到：當日首筆 ALLOW IN 晚於 09:00 UTC。</p>
+        <div class="chart-wrap tall"><canvas id="attendanceChart"></canvas></div>
+        <div id="attendanceErr" class="err"></div>
+      </div>
+    </section>
+
+    <section id="panel-personal" class="panel">
+      <div class="card">
+        <h2>個人出勤 · GET /reports/personal</h2>
+        <div class="chart-wrap tall"><canvas id="personalChart"></canvas></div>
+        <div id="personalErr" class="err"></div>
+      </div>
+    </section>
+
+    <div class="links card">
+      <strong>其他輸出</strong>：同身份可下載
+      <a id="linkCsv" href="#">CSV 事件稽核</a> ·
+      <a id="linkPdf" href="#">PDF 部門報表</a>
+      · Grafana 進階監控：<a href="http://localhost:3001" target="_blank">localhost:3001</a> → 資料夾 <em>Access Control</em> → <em>Access Analytics</em>
+    </div>
+  </main>
+
+  <script>
+    const API = window.location.origin;
+    const charts = {};
+
+    const ROLE_HINTS = {
+      CEO: '可查看全公司組織子樹：部門報表、門禁熱點、考勤趨勢、稽核與匯出。',
+      CFO: '同 CEO 層級（財務長）。',
+      VP: '可查看所屬處/部門及旗下子單位。',
+      DIRECTOR: '可查看所屬處/部門及旗下子單位。',
+      TEAM_MANAGER: '可查看所屬團隊成員的部門報表與分析圖表。',
+      EMPLOYEE: '僅能查看個人出勤與自己的稽核紀錄；部門/熱點/趨勢分頁已隱藏。'
+    };
+
+    function monthStart() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    }
+    function todayStr() {
+      const d = new Date();
+      return d.toISOString().slice(0, 10);
+    }
+
+    function selectedRole() {
+      const opt = document.getElementById('roleSelect').selectedOptions[0];
+      return { userId: opt.value, role: opt.dataset.role, org: opt.dataset.org };
+    }
+
+    async function api(path) {
+      const { userId } = selectedRole();
+      const res = await fetch(`${API}${path}`, { headers: { 'X-User-ID': userId } });
+      const text = await res.text();
+      if (!res.ok) {
+        let msg = text;
+        try { msg = JSON.parse(text).error || text; } catch (_) {}
+        throw new Error(msg);
+      }
+      return JSON.parse(text);
+    }
+
+    function destroyChart(id) {
+      if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    }
+
+    function updateTabsForRole() {
+      const { role } = selectedRole();
+      const isEmployee = role === 'EMPLOYEE';
+      document.getElementById('roleHint').textContent = ROLE_HINTS[role] || '';
+      ['dept', 'heatmap', 'attendance'].forEach(t => {
+        const btn = document.querySelector(`[data-tab="${t}"]`);
+        btn.classList.toggle('hidden', isEmployee);
+      });
+      if (isEmployee) {
+        document.querySelector('[data-tab="personal"]').click();
+      }
+      document.getElementById('orgSelect').closest('div').classList.toggle('hidden', isEmployee);
+    }
+
+    const CORP_ROOT = 'a0000000-0000-0000-0000-000000000001';
+
+    function renderSubUnitsChart(canvasId, chartKey, subUnits, title) {
+      const labels = [];
+      const ins = [];
+      const outs = [];
+      (subUnits || []).forEach(su => {
+        labels.push(su.orgUnitName || su.orgUnitId);
+        ins.push(su.totalEntries ?? 0);
+        outs.push(su.totalExits ?? 0);
+      });
+      destroyChart(chartKey);
+      charts[chartKey] = new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: '進入', data: ins, backgroundColor: '#3b82f6' },
+            { label: '離開', data: outs, backgroundColor: '#6366f1' }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { title: { display: true, text: title, color: '#e7ecf3' } },
+          scales: { y: { beginAtZero: true, ticks: { color: '#8b9cb3' } }, x: { ticks: { color: '#8b9cb3' } } }
+        }
+      });
+    }
+
+    async function loadDepartment() {
+      const err = document.getElementById('deptErr');
+      err.textContent = '';
+      const { role } = selectedRole();
+      const org = document.getElementById('orgSelect').value;
+      const g = document.getElementById('granularity').value;
+      const s = document.getElementById('startDate').value;
+      const e = document.getElementById('endDate').value;
+      try {
+        const data = await api(`/reports/department?orgUnitId=${org}&startDate=${s}&endDate=${e}&granularity=${g}`);
+        const sm = data.summary || {};
+        const metricsHtml = `
+          <div class="metric"><span>總進入</span><strong>${sm.totalEntries ?? 0}</strong></div>
+          <div class="metric"><span>總離開</span><strong>${sm.totalExits ?? 0}</strong></div>
+          <div class="metric"><span>平均工時/日</span><strong>${(sm.avgHoursPerDay ?? 0).toFixed(2)} h</strong></div>
+          <div class="metric"><span>遲到率</span><strong>${((sm.lateRate ?? 0) * 100).toFixed(1)}%</strong></div>
+        `;
+        document.getElementById('deptMetrics').innerHTML = metricsHtml;
+
+        const isExec = role === 'CEO' || role === 'CFO';
+        const showCeo = isExec && org === CORP_ROOT;
+        const ceoCard = document.getElementById('ceoOverviewCard');
+        ceoCard.classList.toggle('hidden', !showCeo);
+        if (showCeo) {
+          document.getElementById('ceoMetrics').innerHTML = metricsHtml;
+          if ((data.subUnits || []).length) {
+            renderSubUnitsChart('ceoSubUnitsChart', 'ceoSubUnits', data.subUnits, '全廠子部門進出對比');
+          }
+        }
+
+        const subBlock = document.getElementById('subUnitsBlock');
+        const hasSub = (data.subUnits || []).length > 0 && !showCeo;
+        subBlock.classList.toggle('hidden', !hasSub);
+        if (hasSub) {
+          renderSubUnitsChart('subUnitsChart', 'subUnits', data.subUnits, '子部門對比');
+        }
+
+        const periods = data.periods || [];
+        const labels = periods.map(p => p.periodStart);
+        const entryLabels = periods.length <= 1 ? ['總進入', '總離開'] : labels;
+        const entryData = periods.length <= 1
+          ? [sm.totalEntries ?? 0, sm.totalExits ?? 0]
+          : null;
+        destroyChart('deptEntries');
+        charts.deptEntries = new Chart(document.getElementById('deptEntriesChart'), {
+          type: 'bar',
+          data: entryData
+            ? { labels: entryLabels, datasets: [{ label: '人次', data: entryData, backgroundColor: ['#3b82f6', '#6366f1'] }] }
+            : {
+                labels,
+                datasets: [
+                  { label: '進入', data: periods.map(p => p.totalEntries), backgroundColor: '#3b82f6' },
+                  { label: '離開', data: periods.map(p => p.totalExits), backgroundColor: '#6366f1' }
+                ]
+              },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { title: { display: true, text: '進出人次', color: '#e7ecf3' } },
+            scales: { y: { beginAtZero: true, ticks: { color: '#8b9cb3' } }, x: { ticks: { color: '#8b9cb3' } } }
+          }
+        });
+        destroyChart('deptHours');
+        charts.deptHours = new Chart(document.getElementById('deptHoursChart'), {
+          type: 'line',
+          data: { labels, datasets: [{ label: '平均工時 (h)', data: periods.map(p => p.avgHours), borderColor: '#22c55e', tension: 0.2 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { title: { display: true, text: '平均工時', color: '#e7ecf3' } },
+            scales: { y: { beginAtZero: true, ticks: { color: '#8b9cb3' } }, x: { ticks: { color: '#8b9cb3' } } }
+          }
+        });
+        destroyChart('deptLate');
+        charts.deptLate = new Chart(document.getElementById('deptLateChart'), {
+          type: 'line',
+          data: { labels, datasets: [{ label: '遲到率 (%)', data: periods.map(p => (p.lateRate || 0) * 100), borderColor: '#f59e0b', tension: 0.2 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { title: { display: true, text: '遲到率 %', color: '#e7ecf3' } },
+            scales: { y: { min: 0, max: 100, ticks: { color: '#8b9cb3' } }, x: { ticks: { color: '#8b9cb3' } } }
+          }
+        });
+      } catch (e) {
+        err.textContent = e.message;
+      }
+    }
+
+    async function loadHeatmap() {
+      const err = document.getElementById('heatmapErr');
+      err.textContent = '';
+      try {
+        const data = await api('/reports/analytics/door-heatmap?minutes=60');
+        const doors = data.doors || [];
+        destroyChart('heatmap');
+        charts.heatmap = new Chart(document.getElementById('doorHeatmapChart'), {
+          type: 'bar',
+          data: {
+            labels: doors.map(d => d.doorName || d.doorId),
+            datasets: [{ label: '刷卡次數', data: doors.map(d => d.swipeCount), backgroundColor: doors.map((_, i) => `hsl(${200 + i * 40}, 70%, 55%)`) }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: '各門流量熱點（橫向長條）', color: '#e7ecf3' }, legend: { display: false } },
+            scales: { x: { ticks: { color: '#8b9cb3' } }, y: { ticks: { color: '#8b9cb3' } } }
+          }
+        });
+      } catch (e) {
+        err.textContent = e.message;
+      }
+    }
+
+    async function loadAttendance() {
+      const err = document.getElementById('attendanceErr');
+      err.textContent = '';
+      const org = document.getElementById('orgSelect').value;
+      const g = document.getElementById('granularity').value;
+      const s = document.getElementById('startDate').value;
+      const e = document.getElementById('endDate').value;
+      try {
+        const data = await api(`/reports/analytics/attendance-trends?orgUnitId=${org}&startDate=${s}&endDate=${e}&granularity=${g}`);
+        const series = data.series || [];
+        const labels = series.map(p => p.periodStart);
+        destroyChart('attendance');
+        charts.attendance = new Chart(document.getElementById('attendanceChart'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              { label: '平均工時 (h)', data: series.map(p => p.avgHours), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.25, yAxisID: 'y' },
+              { label: '遲到率 (%)', data: series.map(p => (p.lateRate || 0) * 100), borderColor: '#f59e0b', tension: 0.25, yAxisID: 'y1' }
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { title: { display: true, text: `${data.orgUnitName || ''} — 考勤趨勢折線圖`, color: '#e7ecf3' } },
+            scales: {
+              y: { position: 'left', ticks: { color: '#8b9cb3' } },
+              y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#8b9cb3' } },
+              x: { ticks: { color: '#8b9cb3' } }
+            }
+          }
+        });
+      } catch (e) {
+        err.textContent = e.message;
+      }
+    }
+
+    async function loadPersonal() {
+      const err = document.getElementById('personalErr');
+      err.textContent = '';
+      const s = document.getElementById('startDate').value;
+      const e = document.getElementById('endDate').value;
+      try {
+        const data = await api(`/reports/personal?startDate=${s}&endDate=${e}`);
+        const recs = data.dailyRecords || [];
+        destroyChart('personal');
+        charts.personal = new Chart(document.getElementById('personalChart'), {
+          type: 'bar',
+          data: {
+            labels: recs.map(r => r.date),
+            datasets: [
+              { label: '工時', data: recs.map(r => r.hoursWorked), backgroundColor: '#3b82f6' },
+              { label: '進入次數', data: recs.map(r => r.totalEntries), backgroundColor: '#64748b' }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: '個人每日工時', color: '#e7ecf3' } }, scales: { x: { ticks: { color: '#8b9cb3' } }, y: { ticks: { color: '#8b9cb3' } } } }
+        });
+      } catch (e) {
+        err.textContent = e.message;
+      }
+    }
+
+    function updateExportLinks() {
+      const { userId } = selectedRole();
+      const org = document.getElementById('orgSelect').value;
+      const s = document.getElementById('startDate').value;
+      const e = document.getElementById('endDate').value;
+      const q = `orgUnitId=${org}&startDate=${s}&endDate=${e}`;
+      document.getElementById('linkCsv').href = `${API}/reports/export?${q}&format=csv&type=events`;
+      document.getElementById('linkPdf').href = `${API}/reports/export?${q}&format=pdf&type=department`;
+      document.getElementById('linkCsv').onclick = document.getElementById('linkPdf').onclick = (ev) => {
+        ev.preventDefault();
+        fetch(ev.target.href, { headers: { 'X-User-ID': userId } })
+          .then(r => r.blob())
+          .then(b => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(b);
+            a.download = ev.target.id === 'linkCsv' ? 'report.csv' : 'report.pdf';
+            a.click();
+          });
+      };
+    }
+
+    async function refreshAll() {
+      const { role } = selectedRole();
+      updateExportLinks();
+      if (role !== 'EMPLOYEE') {
+        await Promise.all([loadDepartment(), loadHeatmap(), loadAttendance()]);
+      }
+      await loadPersonal();
+    }
+
+    document.getElementById('roleSelect').addEventListener('change', () => {
+      const opt = document.getElementById('roleSelect').selectedOptions[0];
+      document.getElementById('orgSelect').value = opt.dataset.org;
+      updateTabsForRole();
+      refreshAll();
+    });
+
+    document.getElementById('tabNav').addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button[data-tab]');
+      if (!btn) return;
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+
+    document.getElementById('startDate').value = monthStart();
+    document.getElementById('endDate').value = todayStr();
+    updateTabsForRole();
+    refreshAll();
+  </script>
+</body>
+</html>

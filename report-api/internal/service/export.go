@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/tsmc/report-api/internal/auth"
 	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/model"
 )
 
 // BuildExportDocument loads data and builds a layout document for the given export type.
-func (s *ReportService) BuildExportDocument(ctx context.Context, req model.ExportRequest, userID, requesterOrgUnitID string) (export.Document, error) {
+func (s *ReportService) BuildExportDocument(ctx context.Context, req model.ExportRequest, userID, requesterOrgUnitID string, role auth.ReportRole) (export.Document, error) {
 	reportType := req.Type
 	if reportType == "" {
 		reportType = "events"
@@ -25,6 +26,9 @@ func (s *ReportService) BuildExportDocument(ctx context.Context, req model.Expor
 		return export.PersonalDocument(resp), nil
 
 	case "department":
+		if !role.CanViewDepartmentReports() {
+			return export.Document{}, fmt.Errorf("access denied: role %s cannot export department reports", role)
+		}
 		if req.OrgUnitID == "" {
 			return export.Document{}, fmt.Errorf("orgUnitId is required for department export")
 		}
@@ -39,6 +43,9 @@ func (s *ReportService) BuildExportDocument(ctx context.Context, req model.Expor
 		return export.DepartmentDocument(resp), nil
 
 	default: // events
+		if !role.CanViewDepartmentReports() {
+			return export.Document{}, fmt.Errorf("access denied: role %s cannot export event logs", role)
+		}
 		if req.OrgUnitID == "" {
 			return export.Document{}, fmt.Errorf("orgUnitId is required for events export")
 		}
@@ -79,8 +86,19 @@ func RenderExport(doc export.Document, format string) ([]byte, string, error) {
 }
 
 // ExportSync builds and renders an export (used by GET /reports/export).
-func (s *ReportService) ExportSync(ctx context.Context, req model.ExportRequest, userID, requesterOrgUnitID string) ([]byte, string, error) {
-	doc, err := s.BuildExportDocument(ctx, req, userID, requesterOrgUnitID)
+func (s *ReportService) ExportSync(ctx context.Context, req model.ExportRequest, userID, requesterOrgUnitID string, role auth.ReportRole) ([]byte, string, error) {
+	reportType := req.Type
+	if reportType == "" {
+		reportType = "events"
+	}
+	if req.Format == "pdf" && reportType == "department" {
+		data, err := s.ExportDepartmentVisualPDF(ctx, req, userID, requesterOrgUnitID, role)
+		if err != nil {
+			return nil, "", err
+		}
+		return data, ".pdf", nil
+	}
+	doc, err := s.BuildExportDocument(ctx, req, userID, requesterOrgUnitID, role)
 	if err != nil {
 		return nil, "", err
 	}
@@ -88,18 +106,30 @@ func (s *ReportService) ExportSync(ctx context.Context, req model.ExportRequest,
 }
 
 // RunExportJob generates a file asynchronously and updates the job store.
-func (s *ReportService) RunExportJob(jobID string, req model.ExportRequest, userID, requesterOrgUnitID string) {
+func (s *ReportService) RunExportJob(jobID string, req model.ExportRequest, userID, requesterOrgUnitID string, role auth.ReportRole) {
 	if s.jobs == nil {
 		return
 	}
 	go func() {
 		ctx := context.Background()
-		doc, err := s.BuildExportDocument(ctx, req, userID, requesterOrgUnitID)
-		if err != nil {
-			s.jobs.MarkFailed(jobID, err.Error())
-			return
+		var data []byte
+		var ext string
+		var err error
+		reportType := req.Type
+		if reportType == "" {
+			reportType = "events"
 		}
-		data, ext, err := RenderExport(doc, req.Format)
+		if req.Format == "pdf" && reportType == "department" {
+			data, err = s.ExportDepartmentVisualPDF(ctx, req, userID, requesterOrgUnitID, role)
+			ext = ".pdf"
+		} else {
+			doc, derr := s.BuildExportDocument(ctx, req, userID, requesterOrgUnitID, role)
+			if derr != nil {
+				s.jobs.MarkFailed(jobID, derr.Error())
+				return
+			}
+			data, ext, err = RenderExport(doc, req.Format)
+		}
 		if err != nil {
 			s.jobs.MarkFailed(jobID, err.Error())
 			return

@@ -208,7 +208,7 @@ POST /access/swipe (IN)
 | 員工/門禁/組織主資料 | §5 ER | 已有 `employee`（demo seed）；尚無 `door`、`org_unit` 表與完整 ER |
 | `CARD_NOT_FOUND` | §7 Response | API 有定義 reason，**尚未實作** cardUid 查詢 |
 | Redis 掛掉時 DB fallback | §8 Resilience | 目前 Redis 不可用回 **503** |
-| `pre_aggregated_reports` 更新 | §4.1.5 Worker | Worker 僅 INSERT 原始事件，未做報表預聚合 |
+| ~~`pre_aggregated_reports` 更新~~ | §4.1.5 | **已完成**（MV 自動聚合；Report API 讀 `sumMerge`） |
 
 ### 4.2 維運與雲原生
 
@@ -217,8 +217,9 @@ POST /access/swipe (IN)
 | Kubernetes 部署 | 目前僅 docker-compose |
 | HPA | §8 換班尖峰自動擴展 |
 | PDF / async export | `GET/POST /reports/export` | **已完成**（gofpdf 排版 + async jobs） |
-| Grafana 進階指標 | queue lag、cache hit、report p99 | 儀表板已涵蓋 access-api；其餘指標待補 |
-| Grafana 告警規則 | p99/QPS 閾值 | 儀表板有視覺閾值；Unified Alerting 未配置 |
+| ~~Grafana 進階指標~~ | 熱點、考勤、passback | **已完成**（Access Analytics + ClickHouse） |
+| ~~Grafana 告警規則~~ | 反潛回 50/min | **已完成**（Prometheus + Grafana；Slack URL 需自行設定） |
+| Grafana 進階指標 | queue lag、cache hit | 仍待補 |
 | CI/CD、SonarQube | 評分項目，未設置 |
 
 
