@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tsmc/report-api/internal/cache"
 	"github.com/tsmc/report-api/internal/config"
+	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/handler"
 	"github.com/tsmc/report-api/internal/repository"
 	"github.com/tsmc/report-api/internal/service"
@@ -69,8 +70,13 @@ func main() {
 	}
 	defer inoutRepo.Close()
 
+	jobStore, err := export.NewJobStore(cfg.ExportDir)
+	if err != nil {
+		log.Fatalf("export jobs: %v", err)
+	}
+
 	// Service + Handler
-	svc := service.NewReportService(orgRepo, reportRepo, inoutRepo, reportCache)
+	svc := service.NewReportService(orgRepo, reportRepo, inoutRepo, reportCache, jobStore)
 	h := handler.NewReportHandler(svc, orgRepo)
 
 	// Router
@@ -93,6 +99,8 @@ func main() {
 		api.GET("/department", h.DepartmentReport)
 		api.GET("/audit", h.AuditLog)
 		api.GET("/export", h.Export)
+		api.POST("/export/jobs", h.ExportJobCreate)
+		api.GET("/export/jobs/:jobId", h.ExportJobGet)
 	}
 
 	// Graceful shutdown

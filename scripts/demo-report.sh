@@ -74,3 +74,25 @@ echo ""
 echo "============================================"
 echo "  Report API Demo Complete ✅"
 echo "============================================"
+
+# Step 6: PDF Export (sync)
+echo "=== Step 6: PDF Export (sync) ==="
+curl -sf -H "X-User-ID: ${USER_ID}"   "${REPORT_URL}/reports/export?orgUnitId=${ORG_UNIT_ID}&startDate=${MONTH_START}&endDate=${TODAY}&format=pdf&type=department"   -o ./report_demo.pdf
+echo "  Saved to ./report_demo.pdf"
+file ./report_demo.pdf 2>/dev/null || true
+echo ""
+
+# Step 7: Async PDF job
+echo "=== Step 7: Async PDF Export ==="
+JOB=$(curl -sf -X POST -H "X-User-ID: ${USER_ID}" -H "Content-Type: application/json"   "${REPORT_URL}/reports/export/jobs"   -d "{"type":"department","format":"pdf","orgUnitId":"${ORG_UNIT_ID}","startDate":"${MONTH_START}","endDate":"${TODAY}","granularity":"daily"}" | jq -r .jobId)
+echo "  jobId=${JOB}"
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  STATUS=$(curl -sf -o /tmp/job_out -w "%{http_code}" -H "X-User-ID: ${USER_ID}"     "${REPORT_URL}/reports/export/jobs/${JOB}")
+  if [ "$STATUS" = "200" ]; then
+    mv /tmp/job_out ./report_async.pdf
+    echo "  Saved to ./report_async.pdf"
+    break
+  fi
+  sleep 1
+done
+echo ""

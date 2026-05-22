@@ -137,6 +137,9 @@ services:
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: password123
+      EXPORT_DIR: /app/exports
+    volumes:
+      - ./exports:/app/exports
     depends_on:
       redis:
         condition: service_healthy

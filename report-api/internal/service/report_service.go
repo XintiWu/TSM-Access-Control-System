@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tsmc/report-api/internal/cache"
+	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/model"
 	"github.com/tsmc/report-api/internal/repository"
 )
@@ -22,6 +23,7 @@ type ReportService struct {
 	reportRepo *repository.ReportRepository
 	inoutRepo  *repository.InOutRepository
 	cache      *cache.ReportCache
+	jobs       *export.JobStore
 }
 
 // NewReportService creates a new ReportService with all required dependencies.
@@ -30,12 +32,14 @@ func NewReportService(
 	reportRepo *repository.ReportRepository,
 	inoutRepo *repository.InOutRepository,
 	reportCache *cache.ReportCache,
+	jobs *export.JobStore,
 ) *ReportService {
 	return &ReportService{
 		orgRepo:    orgRepo,
 		reportRepo: reportRepo,
 		inoutRepo:  inoutRepo,
 		cache:      reportCache,
+		jobs:       jobs,
 	}
 }
 
@@ -449,4 +453,10 @@ func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, 
 	}
 
 	return &buf, nil
+}
+
+
+// Jobs returns the async export job store (may be nil).
+func (s *ReportService) Jobs() *export.JobStore {
+	return s.jobs
 }

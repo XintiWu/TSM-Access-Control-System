@@ -31,12 +31,15 @@ type AuditLogRequest struct {
 	PageSize   int    `form:"pageSize,default=50"`
 }
 
-// ExportRequest for GET /reports/export
+// ExportRequest for GET /reports/export and POST /reports/export/jobs
+// type: events (default) | personal | department
 type ExportRequest struct {
-	OrgUnitID string `form:"orgUnitId" binding:"required,uuid"`
-	StartDate string `form:"startDate" binding:"required"`
-	EndDate   string `form:"endDate" binding:"required"`
-	Format    string `form:"format" binding:"required,oneof=csv pdf"`
+	Type        string `form:"type" json:"type"` // events | personal | department
+	OrgUnitID   string `form:"orgUnitId" json:"orgUnitId"`
+	StartDate   string `form:"startDate" json:"startDate" binding:"required"`
+	EndDate     string `form:"endDate" json:"endDate" binding:"required"`
+	Granularity string `form:"granularity" json:"granularity"`
+	Format      string `form:"format" json:"format" binding:"required,oneof=csv pdf"`
 }
 
 // ────────────────────────────────────────

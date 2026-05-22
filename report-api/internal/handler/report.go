@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/tsmc/report-api/internal/model"
 	"github.com/tsmc/report-api/internal/repository"
+	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/service"
 )
 
@@ -162,14 +163,14 @@ func (h *ReportHandler) AuditLog(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// Export handles GET /reports/export (CSV download, PDF TODO)
+// Export handles GET /reports/export (sync CSV or PDF download)
 func (h *ReportHandler) Export(c *gin.Context) {
 	start := time.Now()
 	defer func() {
 		requestLatency.WithLabelValues("export").Observe(float64(time.Since(start).Milliseconds()))
 	}()
 
-	_, orgUnitID, ok := h.resolveRequester(c)
+	userID, orgUnitID, ok := h.resolveRequester(c)
 	if !ok {
 		requestTotal.WithLabelValues("export", "4xx").Inc()
 		return
@@ -182,13 +183,7 @@ func (h *ReportHandler) Export(c *gin.Context) {
 		return
 	}
 
-	if req.Format == "pdf" {
-		requestTotal.WithLabelValues("export", "501").Inc()
-		c.JSON(http.StatusNotImplemented, gin.H{"error": "PDF export not yet implemented"})
-		return
-	}
-
-	reader, err := h.svc.ExportCSV(c.Request.Context(), req, orgUnitID)
+	data, ext, err := h.svc.ExportSync(c.Request.Context(), req, userID, orgUnitID)
 	if err != nil {
 		if strings.Contains(err.Error(), "access denied") {
 			requestTotal.WithLabelValues("export", "403").Inc()
@@ -200,9 +195,98 @@ func (h *ReportHandler) Export(c *gin.Context) {
 		return
 	}
 
-	filename := fmt.Sprintf("report_%s_%s_%s.csv", req.OrgUnitID, req.StartDate, req.EndDate)
-	c.Header("Content-Type", "text/csv")
+	reportType := req.Type
+	if reportType == "" {
+		reportType = "events"
+	}
+	filename := fmt.Sprintf("access-report-%s-%s-%s%s", reportType, req.StartDate, req.EndDate, ext)
+	if req.Format == "pdf" {
+		c.Header("Content-Type", "application/pdf")
+	} else {
+		c.Header("Content-Type", "text/csv")
+	}
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	requestTotal.WithLabelValues("export", "200").Inc()
-	io.Copy(c.Writer, reader)
+	c.Writer.Write(data)
 }
+
+// ExportJobCreate handles POST /reports/export/jobs (async export)
+func (h *ReportHandler) ExportJobCreate(c *gin.Context) {
+	start := time.Now()
+	defer func() {
+		requestLatency.WithLabelValues("export_job").Observe(float64(time.Since(start).Milliseconds()))
+	}()
+
+	userID, orgUnitID, ok := h.resolveRequester(c)
+	if !ok {
+		requestTotal.WithLabelValues("export_job", "4xx").Inc()
+		return
+	}
+
+	var req model.ExportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		requestTotal.WithLabelValues("export_job", "400").Inc()
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if h.svc.Jobs() == nil {
+		requestTotal.WithLabelValues("export_job", "503").Inc()
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "export jobs unavailable"})
+		return
+	}
+
+	reportType := req.Type
+	if reportType == "" {
+		reportType = "events"
+	}
+	jobID := h.svc.Jobs().Create(req.Format, reportType)
+	h.svc.RunExportJob(jobID, req, userID, orgUnitID)
+
+	requestTotal.WithLabelValues("export_job", "202").Inc()
+	c.JSON(http.StatusAccepted, gin.H{"jobId": jobID, "status": "pending", "format": req.Format, "type": reportType})
+}
+
+// ExportJobGet handles GET /reports/export/jobs/:jobId
+func (h *ReportHandler) ExportJobGet(c *gin.Context) {
+	jobID := c.Param("jobId")
+	if _, err := uuid.Parse(jobID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid jobId"})
+		return
+	}
+	store := h.svc.Jobs()
+	if store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "export jobs unavailable"})
+		return
+	}
+	job, ok := store.Get(jobID)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "job not found"})
+		return
+	}
+	switch job.Status {
+	case export.JobPending:
+		c.JSON(http.StatusAccepted, job)
+		return
+	case export.JobFailed:
+		c.JSON(http.StatusInternalServerError, job)
+		return
+	case export.JobDone:
+		f, name, err := store.OpenResult(jobID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer f.Close()
+		if job.Format == "pdf" {
+			c.Header("Content-Type", "application/pdf")
+		} else {
+			c.Header("Content-Type", "text/csv")
+		}
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", name))
+		io.Copy(c.Writer, f)
+		return
+	}
+	c.JSON(http.StatusOK, job)
+}
+

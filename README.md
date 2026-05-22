@@ -98,6 +98,29 @@ go run ./cmd/sim --direction IN
 cd badge-reader-sim && go run ./cmd/sim --count 100 --interval 50ms
 ```
 
+## Report API (port 8082)
+
+Slow-path reporting backed by **MariaDB** (org tree) and **ClickHouse** (events / pre-aggregation).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/reports/personal` | Personal attendance (`startDate`, `endDate`) |
+| GET | `/reports/department` | Department summary (`orgUnitId`, date range, `granularity`) |
+| GET | `/reports/audit` | Paginated audit log |
+| GET | `/reports/export` | Sync download **CSV or PDF** (`format=csv|pdf`, `type=events|personal|department`) |
+| POST | `/reports/export/jobs` | Async export (JSON body, returns `jobId`) |
+| GET | `/reports/export/jobs/:jobId` | Poll/download completed export |
+
+All endpoints require header **`X-User-ID`** (requester employee UUID).
+
+```bash
+make demo-report          # full report API walkthrough
+make report-export-pdf    # quick department PDF download
+```
+
+Demo org unit: `a0000000-0000-0000-0000-000000000003` (Team-A).
+
+
 ## Observability (Prometheus + Grafana)
 
 After `make up`, monitoring stacks start with the rest of the services:

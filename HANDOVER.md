@@ -200,7 +200,7 @@ POST /access/swipe (IN)
 
 | 項目 | 設計文件位置 | 說明 |
 |------|--------------|------|
-| Report API | §4.2 Slow Path | 個人/部門/稽核報表，&lt;200ms 預聚合查詢 |
+| ~~Report API~~ | §4.2 Slow Path | **已完成**（personal/department/audit + Redis cache + ClickHouse） |
 | ~~Admin 封禁/解封服務~~ | §4.1.3 | **已完成**（`admin-api`） |
 | ~~Cache Invalidation Worker~~ | §4.1.3 | **已完成** |
 | 員工/門禁/組織主資料 | §5 ER | 已有 `employee`（demo seed）；尚無 `door`、`org_unit` 表與完整 ER |
@@ -214,6 +214,7 @@ POST /access/swipe (IN)
 |------|------|
 | Kubernetes 部署 | 目前僅 docker-compose |
 | HPA | §8 換班尖峰自動擴展 |
+| PDF / async export | `GET/POST /reports/export` | **已完成**（gofpdf 排版 + async jobs） |
 | Grafana 進階指標 | queue lag、cache hit、report p99 | 儀表板已涵蓋 access-api；其餘指標待補 |
 | Grafana 告警規則 | p99/QPS 閾值 | 儀表板有視覺閾值；Unified Alerting 未配置 |
 | CI/CD、SonarQube | 評分項目，未設置 |

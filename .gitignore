@@ -12,3 +12,5 @@ docs/
 badge-reader-sim/sim
 access-api/access-api
 aggregation-worker/aggregation-worker
+
+exports/

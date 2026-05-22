@@ -10,6 +10,7 @@ type Config struct {
 	ClickHouseAddr string // ClickHouse Native TCP address
 	ClickHouseUser string
 	ClickHousePass string
+	ExportDir      string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -35,6 +36,10 @@ func Load() Config {
 		chUser = "default"
 	}
 	chPass := os.Getenv("CLICKHOUSE_PASSWORD")
+	exportDir := os.Getenv("EXPORT_DIR")
+	if exportDir == "" {
+		exportDir = "/app/exports"
+	}
 	return Config{
 		HTTPAddr:       addr,
 		RedisAddr:      redis,
@@ -42,5 +47,6 @@ func Load() Config {
 		ClickHouseAddr: chAddr,
 		ClickHouseUser: chUser,
 		ClickHousePass: chPass,
+		ExportDir:      exportDir,
 	}
 }

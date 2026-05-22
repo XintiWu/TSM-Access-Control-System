@@ -98,3 +98,10 @@ load-demo:
 	cd badge-reader-sim && go run ./cmd/sim \
 		--api http://localhost:8080 \
 		--count $(LOAD_COUNT) --interval $(LOAD_INTERVAL)
+
+REPORT_URL ?= http://localhost:8082
+ORG_UNIT ?= a0000000-0000-0000-0000-000000000003
+REPORT_USER ?= 22222222-2222-2222-2222-222222222222
+
+report-export-pdf:
+	curl -sf -H "X-User-ID: $(REPORT_USER)" 	  "$(REPORT_URL)/reports/export?orgUnitId=$(ORG_UNIT)&startDate=$(shell date +%Y-%m-01)&endDate=$(shell date +%Y-%m-%d)&format=pdf&type=department" 	  -o report_export.pdf && echo "wrote report_export.pdf"
