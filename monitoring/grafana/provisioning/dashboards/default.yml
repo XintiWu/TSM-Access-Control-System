@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: access-control
+    orgId: 1
+    folder: Access Control
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

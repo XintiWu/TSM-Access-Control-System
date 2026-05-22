@@ -98,6 +98,27 @@ go run ./cmd/sim --direction IN
 cd badge-reader-sim && go run ./cmd/sim --count 100 --interval 50ms
 ```
 
+## Observability (Prometheus + Grafana)
+
+After `make up`, monitoring stacks start with the rest of the services:
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Grafana | http://localhost:3001 | Login `admin` / `admin` |
+| Prometheus | http://localhost:9090 | Scrapes `access-api:8080/metrics` |
+| Access API metrics | http://localhost:8080/metrics | Raw Prometheus exposition |
+
+**Dashboard:** *Access Control — Shift Change Monitor* (folder: Access Control) — QPS, p99 latency, ALLOW/DENY, deny reasons.
+
+Generate a traffic spike for the charts:
+
+```bash
+make load-demo
+# or: make load-demo LOAD_COUNT=500 LOAD_INTERVAL=10ms
+```
+
+Config lives under `monitoring/` (Prometheus scrape + Grafana provisioning).
+
 ## Tests
 
 ```bash

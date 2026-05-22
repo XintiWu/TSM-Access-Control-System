@@ -77,6 +77,8 @@ Distributed Physical Access Control System/
 | 門禁線上狀態 | `GET /access/door/{doorId}/status` | 完成 |
 | 健康檢查 | `GET /health` | 完成 |
 | Prometheus 指標 | `GET /metrics` | 完成（基礎 counter / histogram） |
+| Grafana 儀表板 | `monitoring/grafana/dashboards/` | 完成（Shift Change：QPS、p99、ALLOW/DENY） |
+| Prometheus + Grafana 服務 | `docker-compose` prometheus/grafana | 完成（:9090 / :3000） |
 
 **決策邏輯（`internal/service/access_decision.go`）：**
 
@@ -212,8 +214,8 @@ POST /access/swipe (IN)
 |------|------|
 | Kubernetes 部署 | 目前僅 docker-compose |
 | HPA | §8 換班尖峰自動擴展 |
-| Grafana / Prometheus 完整儀表板 | 僅有 `/metrics` 端點 |
-| 告警規則 | `access_api_p99_latency_ms` 等閾值未配置 |
+| Grafana 進階指標 | queue lag、cache hit、report p99 | 儀表板已涵蓋 access-api；其餘指標待補 |
+| Grafana 告警規則 | p99/QPS 閾值 | 儀表板有視覺閾值；Unified Alerting 未配置 |
 | CI/CD、SonarQube | 評分項目，未設置 |
 
 
@@ -327,7 +329,7 @@ make up         # 或僅 restart 相關服務
 5. **Phase 2 後續**：
    - Report API + `pre_aggregated_reports`
    - `CARD_NOT_FOUND`（`employee.card_uid` 查詢）
-   - K8s manifests + HPA + Grafana
+   - K8s manifests + HPA（Grafana 已完成於 compose）
 
 ---
 

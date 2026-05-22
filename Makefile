@@ -1,4 +1,4 @@
-.PHONY: up down build seed migrate demo demo-ban swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks
+.PHONY: up down build seed migrate demo demo-ban swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo
 
 # Install repo git hooks (strips Cursor Co-authored-by from commits)
 hooks:
@@ -80,3 +80,11 @@ verify-pipeline:
 
 logs:
 	$(COMPOSE) logs -f access-api admin-api aggregation-worker cache-invalidation-worker
+
+# Generate traffic spike for Grafana dashboard demo
+LOAD_COUNT ?= 200
+LOAD_INTERVAL ?= 20ms
+load-demo:
+	cd badge-reader-sim && go run ./cmd/sim \
+		--api http://localhost:8080 \
+		--count $(LOAD_COUNT) --interval $(LOAD_INTERVAL)

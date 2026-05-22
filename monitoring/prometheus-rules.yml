@@ -1,0 +1,8 @@
+groups:
+  - name: access_api
+    interval: 15s
+    rules:
+      - record: access_api_qps
+        expr: sum(rate(access_api_swipe_total[1m]))
+      - record: access_api_p99_latency_ms
+        expr: histogram_quantile(0.99, sum(rate(access_api_swipe_duration_ms_bucket[5m])) by (le))
