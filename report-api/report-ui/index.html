@@ -149,6 +149,8 @@
         <option value="daily">每日</option>
         <option value="weekly">每週</option>
         <option value="monthly" selected>每月</option>
+        <option value="quarterly">每季</option>
+        <option value="yearly">每年</option>
       </select>
     </div>
     <div>
@@ -328,9 +330,12 @@
       try {
         const data = await api(`/reports/department?orgUnitId=${org}&startDate=${s}&endDate=${e}&granularity=${g}`);
         const sm = data.summary || {};
+        const utilPct = ((sm.workforceUtilization ?? 0) * 100).toFixed(1);
         const metricsHtml = `
           <div class="metric"><span>總進入</span><strong>${sm.totalEntries ?? 0}</strong></div>
           <div class="metric"><span>總離開</span><strong>${sm.totalExits ?? 0}</strong></div>
+          <div class="metric"><span>人力利用率</span><strong>${utilPct}%</strong></div>
+          <div class="metric"><span>編制 / 出勤</span><strong>${sm.headcount ?? 0} / ${sm.uniqueEmployees ?? 0}</strong></div>
           <div class="metric"><span>平均工時/日</span><strong>${(sm.avgHoursPerDay ?? 0).toFixed(2)} h</strong></div>
           <div class="metric"><span>遲到率</span><strong>${((sm.lateRate ?? 0) * 100).toFixed(1)}%</strong></div>
         `;
@@ -407,7 +412,8 @@
       const err = document.getElementById('heatmapErr');
       err.textContent = '';
       try {
-        const data = await api('/reports/analytics/door-heatmap?minutes=60');
+        const org = document.getElementById('orgSelect').value;
+        const data = await api(`/reports/analytics/door-heatmap?orgUnitId=${org}&minutes=60`);
         const doors = data.doors || [];
         destroyChart('heatmap');
         charts.heatmap = new Chart(document.getElementById('doorHeatmapChart'), {

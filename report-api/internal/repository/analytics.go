@@ -15,10 +15,13 @@ type DoorHeatmapRow struct {
 	SwipeCount uint64
 }
 
-// GetDoorHeatmap returns per-door swipe counts in the last `minutes` (live + pre-aggregated minute buckets).
-func (r *ReportRepository) GetDoorHeatmap(ctx context.Context, minutes int) ([]DoorHeatmapRow, error) {
+// GetDoorHeatmap returns per-door swipe counts in the last `minutes`, scoped to org subtree.
+func (r *ReportRepository) GetDoorHeatmap(ctx context.Context, orgUnitIDs []string, minutes int) ([]DoorHeatmapRow, error) {
 	if minutes < 1 {
 		minutes = 60
+	}
+	if len(orgUnitIDs) == 0 {
+		return nil, nil
 	}
 	since := time.Now().UTC().Add(-time.Duration(minutes) * time.Minute)
 
@@ -31,10 +34,11 @@ func (r *ReportRepository) GetDoorHeatmap(ctx context.Context, minutes int) ([]D
 		FROM inout_events AS e
 		LEFT JOIN access_control.door AS d ON e.door_id = d.id
 		WHERE e.event_time >= ?
+		  AND toString(e.org_unit_id) IN (?)
 		GROUP BY e.door_id
 		ORDER BY swipe_count DESC`
 
-	rows, err := r.chConn.Query(ctx, query, since)
+	rows, err := r.chConn.Query(ctx, query, since, orgUnitIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +183,7 @@ func MergeTrendsIntoPeriods(periods []model.PeriodReport, daily []PeriodAttendan
 	for i := range periods {
 		p := &periods[i]
 		switch granularity {
-		case "monthly":
+		case "yearly", "quarterly", "monthly":
 			var sumLate, sumHead int
 			var sumHours float64
 			var days int

@@ -29,8 +29,20 @@ func main() {
 		log.Fatalf("redis ping failed: %v", err)
 	}
 
-	publisher := queue.NewKafkaProducer(cfg.KafkaBrokers, cfg.KafkaTopic)
+	outbox, err := queue.NewFileOutbox(cfg.OutboxDir)
+	if err != nil {
+		log.Fatalf("outbox: %v", err)
+	}
+	publisher := queue.NewKafkaProducerWithOutbox(cfg.KafkaBrokers, cfg.KafkaTopic, outbox)
 	defer publisher.Close()
+
+	replayCtx, replayCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if n, err := publisher.ReplayOutbox(replayCtx); err != nil {
+		log.Printf("WARNING: outbox replay: %v", err)
+	} else if n > 0 {
+		log.Printf("replayed %d events from outbox", n)
+	}
+	replayCancel()
 
 	decisions := service.NewAccessDecisionService(redisCache)
 
@@ -50,7 +62,8 @@ func main() {
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.Use(gin.Recovery(), gin.Logger())
+	// Recovery only on hot path — gin.Logger adds I/O latency under shift-change load.
+	r.Use(gin.Recovery())
 
 	r.GET("/health", func(c *gin.Context) {
 		if err := redisCache.Ping(c.Request.Context()); err != nil {

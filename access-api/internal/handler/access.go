@@ -74,10 +74,6 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 		return
 	}
 
-	if result.Degraded {
-		log.Printf("swipe decision degraded (DB fallback) eventId=%s userId=%s", eventID, req.UserID)
-	}
-
 	reasonLabel := "none"
 	if result.Reason != nil {
 		reasonLabel = string(*result.Reason)
@@ -108,6 +104,7 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 		Decision: result.Decision,
 		Reason:   result.Reason,
 		EventID:  eventID,
+		Degraded: result.Degraded,
 	})
 }
 

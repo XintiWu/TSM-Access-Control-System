@@ -1,4 +1,4 @@
-.PHONY: up down build seed migrate demo demo-ban demo-report demo-full demo-passback-alert swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo
+.PHONY: up down build seed migrate demo demo-ban demo-report demo-full demo-passback-alert swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo load-shift-change shift-change-prep seed-load-users
 
 # Install repo git hooks (strips Cursor Co-authored-by from commits)
 hooks:
@@ -115,6 +115,31 @@ load-demo:
 	cd badge-reader-sim && go run ./cmd/sim \
 		--api http://localhost:8080 \
 		--count $(LOAD_COUNT) --interval $(LOAD_INTERVAL)
+
+# Shift-change spike: default 90k distinct users, all IN (enter factory)
+SHIFT_COUNT ?= 90000
+SHIFT_WORKERS ?= 150
+SHIFT_RAMP ?= 0s
+# Clear Redis passback state before a fresh 90k IN run (avoids ANTI_PASSBACK from prior demos)
+shift-change-prep:
+	$(COMPOSE) exec redis redis-cli FLUSHDB
+	@$(MAKE) seed
+	@echo "Redis flushed and demo cards re-seeded — ready for load-shift-change"
+
+load-shift-change:
+	@mkdir -p data/outbox
+	cd badge-reader-sim && go run ./cmd/load \
+		--api http://localhost:8080 \
+		--count $(SHIFT_COUNT) --workers $(SHIFT_WORKERS) \
+		--direction IN --unique-users=true --ramp $(SHIFT_RAMP)
+
+# Optional: seed 90k synthetic employees into ClickHouse (slow; for report/analytics demos)
+LOAD_USER_COUNT ?= 90000
+seed-load-users:
+	@chmod +x scripts/gen-load-users-sql.sh
+	@./scripts/gen-load-users-sql.sh $(LOAD_USER_COUNT) > clickhouse/seed-load-users.sql
+	$(COMPOSE) exec -T clickhouse clickhouse-client --password password123 --multiquery < clickhouse/seed-load-users.sql
+	@echo "Seeded $(LOAD_USER_COUNT) load-test employees into ClickHouse"
 
 REPORT_URL ?= http://localhost:8082
 ORG_UNIT ?= a0000000-0000-0000-0000-000000000003

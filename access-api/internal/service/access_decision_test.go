@@ -74,9 +74,10 @@ func (m *mockCache) SetCardMapping(_ context.Context, cardUID, userID string) er
 }
 
 type mockDB struct {
-	active map[string]bool   // userID → is_active
-	cards  map[string]string // cardUID → userID
-	err    error
+	active   map[string]bool   // userID → is_active
+	cards    map[string]string // cardUID → userID
+	passback map[string]string // userID → last IN/OUT
+	err      error
 }
 
 func (m *mockDB) IsActive(_ context.Context, userID string) (bool, error) {
@@ -98,6 +99,16 @@ func (m *mockDB) LookupCardUID(_ context.Context, cardUID string) (string, error
 		return "", nil
 	}
 	return m.cards[cardUID], nil
+}
+
+func (m *mockDB) GetLastPassbackState(_ context.Context, userID string) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	if m.passback == nil {
+		return "", nil
+	}
+	return m.passback[userID], nil
 }
 
 // --- Tests: CARD_NOT_FOUND ---
@@ -307,5 +318,23 @@ func TestEvaluate_CacheSetError(t *testing.T) {
 	_, err := svc.Evaluate(context.Background(), "u1", "", model.DirectionIN)
 	if !errors.Is(err, ErrCacheUnavailable) {
 		t.Fatalf("expected ErrCacheUnavailable, got %v", err)
+	}
+}
+
+func TestEvaluate_RedisDown_DBFallback_AntiPassback(t *testing.T) {
+	svc := NewAccessDecisionService(&mockCache{readErr: errors.New("redis down")})
+	svc.SetDBFallback(&mockDB{
+		active:   map[string]bool{"u1": true},
+		passback: map[string]string{"u1": "IN"},
+	})
+	res, err := svc.Evaluate(context.Background(), "u1", "", model.DirectionIN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Decision != model.DecisionDeny || res.Reason == nil || *res.Reason != model.ReasonAntiPassback {
+		t.Fatalf("expected DENY+ANTI_PASSBACK via DB passback, got %+v", res)
+	}
+	if !res.Degraded {
+		t.Fatal("expected Degraded=true")
 	}
 }

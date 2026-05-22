@@ -41,9 +41,10 @@ type SwipeRequest struct {
 }
 
 type SwipeResponse struct {
-	Decision Decision   `json:"decision"`
+	Decision Decision    `json:"decision"`
 	Reason   *DenyReason `json:"reason"`
-	EventID  string     `json:"eventId"`
+	EventID  string      `json:"eventId"`
+	Degraded bool        `json:"degraded,omitempty"` // true when Redis down and DB fallback used
 }
 
 type InOutEvent struct {

@@ -10,6 +10,7 @@ type Config struct {
 	RedisAddr        string
 	KafkaBrokers     []string
 	KafkaTopic       string
+	OutboxDir        string // durable Kafka publish backlog
 	ClickHouseAddr   string // optional — enables fallback when Redis is down
 	ClickHouseUser   string
 	ClickHousePass   string
@@ -38,11 +39,16 @@ func Load() Config {
 		chUser = "default"
 	}
 	chPass := os.Getenv("CLICKHOUSE_PASSWORD")
+	outboxDir := os.Getenv("OUTBOX_DIR")
+	if outboxDir == "" {
+		outboxDir = "/data/outbox"
+	}
 	return Config{
 		HTTPAddr:       addr,
 		RedisAddr:      redis,
 		KafkaBrokers:   strings.Split(brokers, ","),
 		KafkaTopic:     topic,
+		OutboxDir:      outboxDir,
 		ClickHouseAddr: chAddr,
 		ClickHouseUser: chUser,
 		ClickHousePass: chPass,

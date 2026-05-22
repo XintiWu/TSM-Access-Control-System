@@ -29,6 +29,7 @@ type CacheStore interface {
 type DBStore interface {
 	IsActive(ctx context.Context, userID string) (bool, error)
 	LookupCardUID(ctx context.Context, cardUID string) (string, error)
+	GetLastPassbackState(ctx context.Context, userID string) (string, error)
 }
 
 type DecisionResult struct {
@@ -82,8 +83,7 @@ func (s *AccessDecisionService) Evaluate(ctx context.Context, userID, cardUID st
 	// Step 2: Permission denied check
 	denied, err := s.cache.IsDenied(ctx, userID)
 	if err != nil {
-		// Redis unavailable — try DB fallback
-		return s.evaluateFallback(ctx, userID)
+		return s.evaluateFallback(ctx, userID, direction)
 	}
 	if denied {
 		r := model.ReasonPermissionDenied
@@ -93,7 +93,7 @@ func (s *AccessDecisionService) Evaluate(ctx context.Context, userID, cardUID st
 	// Step 3: Anti-passback
 	state, err := s.cache.GetPassback(ctx, userID)
 	if err != nil {
-		return s.evaluateFallback(ctx, userID)
+		return s.evaluateFallback(ctx, userID, direction)
 	}
 
 	if violation := checkAntiPassback(state, direction); violation {
@@ -103,21 +103,21 @@ func (s *AccessDecisionService) Evaluate(ctx context.Context, userID, cardUID st
 
 	// Step 4: Update passback state
 	if err := s.cache.SetPassback(ctx, userID, model.PassbackState(direction)); err != nil {
-		return s.evaluateFallback(ctx, userID)
+		return s.evaluateFallback(ctx, userID, direction)
 	}
 
 	return DecisionResult{Decision: model.DecisionAllow, Reason: nil}, nil
 }
 
 // evaluateFallback makes a degraded decision via DB when Redis is down.
-// Anti-passback is skipped (DB doesn't track passback state).
-func (s *AccessDecisionService) evaluateFallback(ctx context.Context, userID string) (DecisionResult, error) {
+// Anti-passback uses the last ALLOW event from ClickHouse when available.
+func (s *AccessDecisionService) evaluateFallback(ctx context.Context, userID string, direction model.Direction) (DecisionResult, error) {
 	if s.db == nil {
 		return DecisionResult{}, ErrCacheUnavailable
 	}
 
 	fallbackTotal.Inc()
-	log.Printf("redis unavailable, falling back to DB for userId=%s", userID)
+	log.Printf("redis unavailable, falling back to DB for userId=%s (degraded)", userID)
 
 	active, err := s.db.IsActive(ctx, userID)
 	if err != nil {
@@ -128,7 +128,15 @@ func (s *AccessDecisionService) evaluateFallback(ctx context.Context, userID str
 		return DecisionResult{Decision: model.DecisionDeny, Reason: &r, Degraded: true}, nil
 	}
 
-	// ALLOW (degraded — anti-passback skipped)
+	state := model.PassbackNone
+	if lastDir, err := s.db.GetLastPassbackState(ctx, userID); err == nil && lastDir != "" {
+		state = model.PassbackState(lastDir)
+	}
+	if violation := checkAntiPassback(state, direction); violation {
+		r := model.ReasonAntiPassback
+		return DecisionResult{Decision: model.DecisionDeny, Reason: &r, Degraded: true}, nil
+	}
+
 	return DecisionResult{Decision: model.DecisionAllow, Reason: nil, Degraded: true}, nil
 }
 

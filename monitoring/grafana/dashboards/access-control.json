@@ -20,7 +20,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "## Shift Change Monitor\n\n\u76e3\u63a7\u63db\u73ed\u5c16\u5cf0\u5237\u5361\u6d41\u91cf\u3002\u7522\u751f\u6d41\u91cf\uff1a`make load-demo`\n\n| \u670d\u52d9 | URL |\n|------|-----|\n| Grafana | http://localhost:3001 (admin/admin) |\n| Prometheus | http://localhost:9090 |\n| Access API metrics | http://localhost:8080/metrics |\n"
+        "content": "## Shift Change Monitor\n\n\u76e3\u63a7\u63db\u73ed\u5c16\u5cf0\u5237\u5361\u6d41\u91cf\u3002\u7522\u751f\u6d41\u91cf\uff1a`make load-shift-change` (90k \u4e0d\u540c\u4eba IN)\n\n| \u670d\u52d9 | URL |\n|------|-----|\n| Grafana | http://localhost:3001 (admin/admin) |\n| Prometheus | http://localhost:9090 |\n| Access API metrics | http://localhost:8080/metrics |\n"
       }
     },
     {

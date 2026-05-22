@@ -313,14 +313,14 @@ func (h *ReportHandler) DoorHeatmap(c *gin.Context) {
 		requestLatency.WithLabelValues("door_heatmap").Observe(float64(time.Since(start).Milliseconds()))
 	}()
 
-	_, _, role, ok := h.resolveRequester(c)
+	_, orgUnitID, role, ok := h.resolveRequester(c)
 	if !ok {
 		requestTotal.WithLabelValues("door_heatmap", "4xx").Inc()
 		return
 	}
 	var req model.DoorHeatmapRequest
 	_ = c.ShouldBindQuery(&req)
-	resp, err := h.svc.GetDoorHeatmap(c.Request.Context(), req.Minutes, role)
+	resp, err := h.svc.GetDoorHeatmap(c.Request.Context(), req.OrgUnitID, req.Minutes, orgUnitID, role)
 	if err != nil {
 		if strings.Contains(err.Error(), "access denied") {
 			requestTotal.WithLabelValues("door_heatmap", "403").Inc()
@@ -365,6 +365,39 @@ func (h *ReportHandler) AttendanceTrends(c *gin.Context) {
 		return
 	}
 	requestTotal.WithLabelValues("attendance_trends", "200").Inc()
+	c.JSON(http.StatusOK, resp)
+}
+
+// WorkforceUtilization handles GET /reports/analytics/workforce-utilization
+func (h *ReportHandler) WorkforceUtilization(c *gin.Context) {
+	start := time.Now()
+	defer func() {
+		requestLatency.WithLabelValues("workforce_utilization").Observe(float64(time.Since(start).Milliseconds()))
+	}()
+
+	_, orgUnitID, role, ok := h.resolveRequester(c)
+	if !ok {
+		requestTotal.WithLabelValues("workforce_utilization", "4xx").Inc()
+		return
+	}
+	var req model.WorkforceUtilizationRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		requestTotal.WithLabelValues("workforce_utilization", "400").Inc()
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := h.svc.GetWorkforceUtilization(c.Request.Context(), req, orgUnitID, role)
+	if err != nil {
+		if strings.Contains(err.Error(), "access denied") {
+			requestTotal.WithLabelValues("workforce_utilization", "403").Inc()
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		requestTotal.WithLabelValues("workforce_utilization", "500").Inc()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	requestTotal.WithLabelValues("workforce_utilization", "200").Inc()
 	c.JSON(http.StatusOK, resp)
 }
 

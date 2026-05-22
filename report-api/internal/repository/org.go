@@ -200,6 +200,27 @@ func (r *OrgRepository) IsInSubtree(ctx context.Context, requesterOrgUnitID, tar
 	return len(targetPath) >= len(requesterPath) && targetPath[:len(requesterPath)] == requesterPath, nil
 }
 
+// CountActiveEmployees returns active headcount in the given org units (inclusive list).
+func (r *OrgRepository) CountActiveEmployees(ctx context.Context, orgUnitIDs []string) (int, error) {
+	if len(orgUnitIDs) == 0 {
+		return 0, nil
+	}
+	var count uint64
+	err := r.chConn.QueryRow(ctx, `
+		SELECT count()
+		FROM (
+			SELECT id
+			FROM employee
+			WHERE toString(org_unit_id) IN (?)
+			GROUP BY id
+			HAVING argMax(is_active, updated_at) = 1
+		)`, orgUnitIDs).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
 // GetChildUnits returns the direct children of an org_unit.
 func (r *OrgRepository) GetChildUnits(ctx context.Context, parentID string) ([]model.OrgUnit, error) {
 	pid, err := uuid.Parse(parentID)

@@ -65,6 +65,9 @@ services:
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: password123
+      OUTBOX_DIR: /data/outbox
+    volumes:
+      - ./data/outbox:/data/outbox
     depends_on:
       redis:
         condition: service_healthy

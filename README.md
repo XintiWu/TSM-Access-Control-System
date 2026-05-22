@@ -37,7 +37,7 @@ No extra demo CSV or handover documents are required—everything needed to run 
 | **Ingestion** | Kafka `inout-events` → aggregation worker → ClickHouse `inout_events` |
 | **Pre-aggregation** | Materialized views for daily entry/exit counts per org unit |
 | **Reporting** | Personal, department, and audit reports; CSV/PDF export |
-| **Analytics** | Door traffic heatmap, attendance trends (avg hours + late rate) |
+| **Analytics** | Door traffic heatmap (org subtree), attendance trends (daily/weekly/monthly/quarterly/yearly), workforce utilization |
 | **Visual PDF** | Metadata header, KPI summary, detail table, embedded charts |
 | **Web UI** | Chart.js dashboard at `/ui/` with role-based tabs |
 | **Observability** | Prometheus metrics, Grafana dashboards, anti-passback alerting |
@@ -179,6 +179,7 @@ make demo-full
 | `make unban USER=<uuid>` | Unban employee |
 | `make verify-pipeline` | Confirm swipe event lands in ClickHouse |
 | `make load-demo` | Traffic spike (`LOAD_COUNT`, `LOAD_INTERVAL`) |
+| `make load-shift-change` | Shift-change simulation (`SHIFT_COUNT` default 90000, `SHIFT_WORKERS` default 200) for Grafana |
 | `make report-export-pdf` | Quick PDF to `report_export.pdf` (override `REPORT_USER`, `ORG_UNIT`) |
 | `make logs` | Follow compose logs for core services |
 | `make test-unit` | Go unit tests for all modules |
@@ -300,8 +301,9 @@ Open **http://localhost:8082/ui/**
 | `GET` | `/reports/personal` | `startDate`, `endDate` | Personal attendance (all roles) |
 | `GET` | `/reports/department` | `orgUnitId`, dates, `granularity` | Department summary + periods + sub-units |
 | `GET` | `/reports/audit` | dates, optional filters | Paginated audit log (`sourceIp` in response) |
-| `GET` | `/reports/analytics/door-heatmap` | `minutes` (default 60) | Door swipe ranking |
+| `GET` | `/reports/analytics/door-heatmap` | `orgUnitId`, `minutes` (default 60) | Door swipe ranking (subtree-scoped) |
 | `GET` | `/reports/analytics/attendance-trends` | `orgUnitId`, dates, `granularity` | Avg hours + late rate series |
+| `GET` | `/reports/analytics/workforce-utilization` | `orgUnitId`, dates | Headcount utilization + on-site rate |
 | `GET` | `/reports/export` | `format=csv\|pdf`, `type=events\|personal\|department` | Synchronous export |
 | `POST` | `/reports/export/jobs` | JSON body | Async export job |
 | `GET` | `/reports/export/jobs/:jobId` | — | Poll / download async export |
@@ -309,7 +311,9 @@ Open **http://localhost:8082/ui/**
 | `GET` | `/metrics` | — | Prometheus metrics |
 | `GET` | `/ui/` | — | Static Chart.js UI |
 
-`granularity`: `daily` | `weekly` | `monthly` (default `daily`).
+`granularity`: `daily` | `weekly` | `monthly` | `quarterly` | `yearly` (default `daily`).
+
+**Workforce utilization:** `uniqueEmployees / headcount` in range; `onSiteRate` uses latest ALLOW direction per employee.
 
 ### curl examples
 
@@ -410,6 +414,27 @@ Starts with `make up` under `monitoring/`.
 ```bash
 make demo-passback-alert
 make load-demo LOAD_COUNT=200 LOAD_INTERVAL=20ms
+# Shift-change spike (open Grafana Shift Change Monitor first)
+make load-shift-change
+# Quick local smoke: SHIFT_COUNT=2000 SHIFT_WORKERS=50 make load-shift-change
+
+### Simulating 90,000 different people
+
+The load tool assigns **one synthetic UUID per request index** (`00000000-0000-4000-a000-{index}`), default **direction=IN** (everyone entering at shift change). No `cardUid` is sent, so master data is not required for the Fast Path.
+
+```bash
+# Before first 90k run (clears prior passback keys in Redis)
+make shift-change-prep
+make load-shift-change
+
+# Softer ramp (often lowers p99): spread 90k over 60s
+SHIFT_RAMP=60s make load-shift-change
+
+# Optional: also insert 90k rows into ClickHouse for reporting demos
+make seed-load-users LOAD_USER_COUNT=90000
+```
+
+**Improving p99 &lt; 50ms locally:** use `--unique-users` + `IN` only (avoids anti-passback storms), `SHIFT_WORKERS=100–150`, optional `SHIFT_RAMP=30s`, rebuild access-api after pulling (Redis pool + no gin access log on `/access/swipe`).
 ```
 
 ---

@@ -9,10 +9,20 @@ import (
 	"github.com/tsmc/report-api/internal/repository"
 )
 
-// GetDoorHeatmap returns real-time door swipe ranking for the requester's company scope.
-func (s *ReportService) GetDoorHeatmap(ctx context.Context, minutes int, role auth.ReportRole) (*model.DoorHeatmapResponse, error) {
+// GetDoorHeatmap returns real-time door swipe ranking scoped to an org subtree.
+func (s *ReportService) GetDoorHeatmap(ctx context.Context, orgUnitID string, minutes int, requesterOrgUnitID string, role auth.ReportRole) (*model.DoorHeatmapResponse, error) {
 	if !role.CanViewDepartmentReports() {
 		return nil, fmt.Errorf("access denied: role %s cannot view door analytics", role)
+	}
+	if orgUnitID == "" {
+		orgUnitID = requesterOrgUnitID
+	}
+	inSubtree, err := s.orgRepo.IsInSubtree(ctx, requesterOrgUnitID, orgUnitID)
+	if err != nil {
+		return nil, err
+	}
+	if !inSubtree {
+		return nil, fmt.Errorf("access denied: orgUnitId %s is not in your subtree", orgUnitID)
 	}
 	if minutes < 1 {
 		minutes = 60
@@ -20,7 +30,11 @@ func (s *ReportService) GetDoorHeatmap(ctx context.Context, minutes int, role au
 	if minutes > 24*60 {
 		minutes = 24 * 60
 	}
-	rows, err := s.reportRepo.GetDoorHeatmap(ctx, minutes)
+	subtreeIDs, err := s.orgRepo.GetSubtreeIDs(ctx, orgUnitID)
+	if err != nil {
+		return nil, fmt.Errorf("get subtree: %w", err)
+	}
+	rows, err := s.reportRepo.GetDoorHeatmap(ctx, subtreeIDs, minutes)
 	if err != nil {
 		return nil, fmt.Errorf("door heatmap: %w", err)
 	}
@@ -84,5 +98,52 @@ func (s *ReportService) GetAttendanceTrends(ctx context.Context, req model.Atten
 		OrgUnitID: req.OrgUnitID, OrgUnitName: orgUnit.Name,
 		StartDate: req.StartDate, EndDate: req.EndDate,
 		Granularity: granularity, Series: series,
+	}, nil
+}
+
+// GetWorkforceUtilization returns headcount-based utilization for an org subtree.
+func (s *ReportService) GetWorkforceUtilization(ctx context.Context, req model.WorkforceUtilizationRequest, requesterOrgUnitID string, role auth.ReportRole) (*model.WorkforceUtilizationResponse, error) {
+	if !role.CanViewDepartmentReports() {
+		return nil, fmt.Errorf("access denied: role %s cannot view workforce utilization", role)
+	}
+	inSubtree, err := s.orgRepo.IsInSubtree(ctx, requesterOrgUnitID, req.OrgUnitID)
+	if err != nil {
+		return nil, err
+	}
+	if !inSubtree {
+		return nil, fmt.Errorf("access denied: orgUnitId %s is not in your subtree", req.OrgUnitID)
+	}
+	orgUnit, err := s.orgRepo.GetOrgUnit(ctx, req.OrgUnitID)
+	if err != nil || orgUnit == nil {
+		return nil, fmt.Errorf("org unit not found: %s", req.OrgUnitID)
+	}
+	subtreeIDs, err := s.orgRepo.GetSubtreeIDs(ctx, req.OrgUnitID)
+	if err != nil {
+		return nil, fmt.Errorf("get subtree: %w", err)
+	}
+	summary, err := s.reportRepo.GetSummary(ctx, subtreeIDs, req.StartDate, req.EndDate)
+	if err != nil {
+		return nil, fmt.Errorf("get summary: %w", err)
+	}
+	headcount, err := s.orgRepo.CountActiveEmployees(ctx, subtreeIDs)
+	if err != nil {
+		return nil, fmt.Errorf("headcount: %w", err)
+	}
+	onSite, err := s.reportRepo.GetOnSiteCount(ctx, subtreeIDs)
+	if err != nil {
+		return nil, fmt.Errorf("on-site: %w", err)
+	}
+	util := calcUtilization(summary.UniqueEmployees, headcount)
+	onSiteRate := calcUtilization(onSite, headcount)
+	return &model.WorkforceUtilizationResponse{
+		OrgUnitID:            req.OrgUnitID,
+		OrgUnitName:          orgUnit.Name,
+		StartDate:            req.StartDate,
+		EndDate:              req.EndDate,
+		Headcount:            headcount,
+		UniquePresent:        summary.UniqueEmployees,
+		WorkforceUtilization: util,
+		OnSiteNow:            onSite,
+		OnSiteRate:           onSiteRate,
 	}, nil
 }

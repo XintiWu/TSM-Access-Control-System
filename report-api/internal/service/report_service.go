@@ -182,6 +182,12 @@ func (s *ReportService) GetDepartmentReport(ctx context.Context, req model.Depar
 	if err != nil {
 		return nil, fmt.Errorf("get summary: %w", err)
 	}
+	headcount, err := s.orgRepo.CountActiveEmployees(ctx, subtreeIDs)
+	if err != nil {
+		return nil, fmt.Errorf("headcount: %w", err)
+	}
+	summary.Headcount = headcount
+	summary.WorkforceUtilization = calcUtilization(summary.UniqueEmployees, headcount)
 
 	// Build periods based on granularity
 	periods := buildPeriods(aggRows, granularity, req.StartDate, req.EndDate)
@@ -244,9 +250,24 @@ func buildPeriods(rows []model.AggregatedRow, granularity, startDate, endDate st
 		return groupByWeek(rows, startDate, endDate)
 	case "monthly":
 		return groupByMonth(rows, startDate, endDate)
+	case "quarterly":
+		return groupByQuarter(rows, startDate, endDate)
+	case "yearly":
+		return groupByYear(rows, startDate, endDate)
 	default: // daily
 		return groupByDay(rows)
 	}
+}
+
+func calcUtilization(uniquePresent, headcount int) float64 {
+	if headcount <= 0 {
+		return 0
+	}
+	u := float64(uniquePresent) / float64(headcount)
+	if u > 1 {
+		return 1
+	}
+	return math.Round(u*10000) / 10000
 }
 
 func groupByDay(rows []model.AggregatedRow) []model.PeriodReport {
@@ -343,6 +364,65 @@ func groupByMonth(rows []model.AggregatedRow, startDate, endDate string) []model
 	for _, k := range order {
 		periods = append(periods, *monthMap[k])
 	}
+	return periods
+}
+
+func groupByQuarter(rows []model.AggregatedRow, startDate, endDate string) []model.PeriodReport {
+	quarterMap := make(map[string]*model.PeriodReport)
+	var order []string
+	for _, r := range rows {
+		rd, _ := time.Parse("2006-01-02", r.ReportDate)
+		q := (int(rd.Month())-1)/3 + 1
+		key := fmt.Sprintf("%d-Q%d", rd.Year(), q)
+		p, ok := quarterMap[key]
+		if !ok {
+			monthStart := time.Date(rd.Year(), time.Month((q-1)*3+1), 1, 0, 0, 0, 0, time.UTC)
+			monthEnd := monthStart.AddDate(0, 3, -1)
+			p = &model.PeriodReport{
+				PeriodStart: monthStart.Format("2006-01-02"),
+				PeriodEnd:   monthEnd.Format("2006-01-02"),
+			}
+			quarterMap[key] = p
+			order = append(order, key)
+		}
+		p.TotalEntries += r.TotalEntries
+		p.TotalExits += r.TotalExits
+		p.UniqueEmployees += r.UniqueEmployees
+	}
+	var periods []model.PeriodReport
+	for _, k := range order {
+		periods = append(periods, *quarterMap[k])
+	}
+	_ = startDate
+	_ = endDate
+	return periods
+}
+
+func groupByYear(rows []model.AggregatedRow, startDate, endDate string) []model.PeriodReport {
+	yearMap := make(map[string]*model.PeriodReport)
+	var order []string
+	for _, r := range rows {
+		rd, _ := time.Parse("2006-01-02", r.ReportDate)
+		key := fmt.Sprintf("%d", rd.Year())
+		p, ok := yearMap[key]
+		if !ok {
+			p = &model.PeriodReport{
+				PeriodStart: fmt.Sprintf("%d-01-01", rd.Year()),
+				PeriodEnd:   fmt.Sprintf("%d-12-31", rd.Year()),
+			}
+			yearMap[key] = p
+			order = append(order, key)
+		}
+		p.TotalEntries += r.TotalEntries
+		p.TotalExits += r.TotalExits
+		p.UniqueEmployees += r.UniqueEmployees
+	}
+	var periods []model.PeriodReport
+	for _, k := range order {
+		periods = append(periods, *yearMap[k])
+	}
+	_ = startDate
+	_ = endDate
 	return periods
 }
 

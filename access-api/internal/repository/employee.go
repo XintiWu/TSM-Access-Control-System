@@ -59,6 +59,24 @@ func (r *EmployeeRepository) IsActive(ctx context.Context, userID string) (bool,
 
 // LookupCardUID returns the employee UUID for a given card_uid.
 // Returns ("", nil) if the card is not found.
+// GetLastPassbackState returns the last ALLOW swipe direction for anti-passback when Redis is down.
+func (r *EmployeeRepository) GetLastPassbackState(ctx context.Context, userID string) (string, error) {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return "", err
+	}
+	var direction string
+	err = r.chConn.QueryRow(ctx, `
+		SELECT direction FROM inout_events
+		WHERE employee_id = ? AND status = 'ALLOW'
+		ORDER BY event_time DESC
+		LIMIT 1`, id).Scan(&direction)
+	if err != nil {
+		return "", nil
+	}
+	return direction, nil
+}
+
 func (r *EmployeeRepository) LookupCardUID(ctx context.Context, cardUID string) (string, error) {
 	var userID uuid.UUID
 	err := r.chConn.QueryRow(ctx, `

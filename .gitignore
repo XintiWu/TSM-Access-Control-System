@@ -14,6 +14,7 @@ access-api/access-api
 aggregation-worker/aggregation-worker
 
 exports/
+data/outbox/
 
 # Local docs and generated report artifacts (not published)
 DEMO.md

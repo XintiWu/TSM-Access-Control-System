@@ -98,6 +98,7 @@ func main() {
 		api.GET("/export/jobs/:jobId", h.ExportJobGet)
 		api.GET("/analytics/door-heatmap", h.DoorHeatmap)
 		api.GET("/analytics/attendance-trends", h.AttendanceTrends)
+		api.GET("/analytics/workforce-utilization", h.WorkforceUtilization)
 	}
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}

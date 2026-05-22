@@ -64,7 +64,7 @@ func (s *ReportService) ExportDepartmentVisualPDF(
 		return nil, err
 	}
 
-	heatmap, err := s.GetDoorHeatmap(ctx, 60, role)
+	heatmap, err := s.GetDoorHeatmap(ctx, req.OrgUnitID, 60, requesterOrgUnitID, role)
 	if err != nil {
 		return nil, err
 	}

@@ -171,6 +171,27 @@ func (r *ReportRepository) GetSummary(ctx context.Context, orgUnitIDs []string, 
 	return summary, nil
 }
 
+// GetOnSiteCount returns employees whose latest ALLOW swipe in the subtree is IN.
+func (r *ReportRepository) GetOnSiteCount(ctx context.Context, orgUnitIDs []string) (int, error) {
+	if len(orgUnitIDs) == 0 {
+		return 0, nil
+	}
+	var count uint64
+	err := r.chConn.QueryRow(ctx, `
+		SELECT count()
+		FROM (
+			SELECT employee_id, argMax(direction, event_time) AS last_dir
+			FROM inout_events
+			WHERE toString(org_unit_id) IN (?) AND status = 'ALLOW'
+			GROUP BY employee_id
+		)
+		WHERE last_dir = 'IN'`, orgUnitIDs).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
 // getAggregatedLive scans inout_events when pre_aggregated_reports has no rows yet.
 func (r *ReportRepository) getAggregatedLive(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.AggregatedRow, error) {
 	query := `

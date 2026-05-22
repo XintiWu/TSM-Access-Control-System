@@ -19,11 +19,17 @@ type EventPublisher interface {
 type KafkaProducer struct {
 	writer *kafka.Writer
 	retry  chan model.InOutEvent
+	outbox *FileOutbox
 	done   chan struct{}
 	wg     sync.WaitGroup
 }
 
 func NewKafkaProducer(brokers []string, topic string) *KafkaProducer {
+	return NewKafkaProducerWithOutbox(brokers, topic, nil)
+}
+
+// NewKafkaProducerWithOutbox creates a producer; optional outbox persists failed publishes to disk.
+func NewKafkaProducerWithOutbox(brokers []string, topic string, outbox *FileOutbox) *KafkaProducer {
 	w := &kafka.Writer{
 		Addr:         kafka.TCP(brokers...),
 		Topic:        topic,
@@ -34,6 +40,7 @@ func NewKafkaProducer(brokers []string, topic string) *KafkaProducer {
 	p := &KafkaProducer{
 		writer: w,
 		retry:  make(chan model.InOutEvent, 1024),
+		outbox: outbox,
 		done:   make(chan struct{}),
 	}
 	p.wg.Add(1)
@@ -41,17 +48,38 @@ func NewKafkaProducer(brokers []string, topic string) *KafkaProducer {
 	return p
 }
 
+func (p *KafkaProducer) enqueueRetry(event model.InOutEvent, cause error) error {
+	select {
+	case p.retry <- event:
+		log.Printf("kafka publish queued for retry eventId=%s: %v", event.EventID, cause)
+		return cause
+	default:
+		if p.outbox != nil {
+			if err := p.outbox.Append(event); err != nil {
+				log.Printf("kafka publish failed; outbox append failed eventId=%s: %v", event.EventID, err)
+				return err
+			}
+			log.Printf("kafka publish spooled to outbox eventId=%s: %v", event.EventID, cause)
+			return nil
+		}
+		log.Printf("kafka publish failed and retry buffer full eventId=%s: %v", event.EventID, cause)
+		return cause
+	}
+}
+
 func (p *KafkaProducer) Publish(ctx context.Context, event model.InOutEvent) error {
 	if err := p.write(ctx, event); err != nil {
-		select {
-		case p.retry <- event:
-			log.Printf("kafka publish queued for retry eventId=%s: %v", event.EventID, err)
-		default:
-			log.Printf("kafka publish failed and retry buffer full eventId=%s: %v", event.EventID, err)
-		}
-		return err
+		return p.enqueueRetry(event, err)
 	}
 	return nil
+}
+
+// ReplayOutbox drains the on-disk outbox (call at startup).
+func (p *KafkaProducer) ReplayOutbox(ctx context.Context) (int, error) {
+	if p.outbox == nil {
+		return 0, nil
+	}
+	return p.outbox.Replay(ctx, p.write)
 }
 
 func (p *KafkaProducer) write(ctx context.Context, event model.InOutEvent) error {
@@ -74,14 +102,7 @@ func (p *KafkaProducer) retryLoop() {
 		case event := <-p.retry:
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			if err := p.write(ctx, event); err != nil {
-				log.Printf("kafka retry failed eventId=%s: %v", event.EventID, err)
-				go func(ev model.InOutEvent) {
-					time.Sleep(2 * time.Second)
-					select {
-					case p.retry <- ev:
-					default:
-					}
-				}(event)
+				_ = p.enqueueRetry(event, err)
 			}
 			cancel()
 		}

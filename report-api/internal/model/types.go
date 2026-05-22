@@ -17,7 +17,7 @@ type DepartmentReportRequest struct {
 	OrgUnitID   string `form:"orgUnitId" binding:"required,uuid"`
 	StartDate   string `form:"startDate" binding:"required"`
 	EndDate     string `form:"endDate" binding:"required"`
-	Granularity string `form:"granularity"` // daily | weekly | monthly (default: daily)
+	Granularity string `form:"granularity"` // daily | weekly | monthly | quarterly | yearly
 }
 
 // AuditLogRequest for GET /reports/audit
@@ -79,11 +79,13 @@ type DepartmentReportResponse struct {
 
 // DepartmentSummary is the overall summary section of a department report.
 type DepartmentSummary struct {
-	TotalEntries    int     `json:"totalEntries"`
-	TotalExits      int     `json:"totalExits"`
-	UniqueEmployees int     `json:"uniqueEmployees"`
-	AvgHoursPerDay  float64 `json:"avgHoursPerDay"`
-	LateRate        float64 `json:"lateRate"` // fraction 0–1 (first ALLOW IN after 09:00 UTC)
+	TotalEntries           int     `json:"totalEntries"`
+	TotalExits             int     `json:"totalExits"`
+	UniqueEmployees        int     `json:"uniqueEmployees"`
+	Headcount              int     `json:"headcount"`              // active employees in subtree
+	WorkforceUtilization   float64 `json:"workforceUtilization"`   // unique present / headcount (0–1)
+	AvgHoursPerDay         float64 `json:"avgHoursPerDay"`
+	LateRate               float64 `json:"lateRate"` // fraction 0–1 (first ALLOW IN after 09:00 UTC)
 }
 
 // PeriodReport represents one period (day/week/month) in a department report.
@@ -154,7 +156,28 @@ type AuditEvent struct {
 
 // DoorHeatmapRequest for GET /reports/analytics/door-heatmap
 type DoorHeatmapRequest struct {
-	Minutes int `form:"minutes"` // default 60
+	OrgUnitID string `form:"orgUnitId"` // optional; defaults to requester's org
+	Minutes   int    `form:"minutes"`   // default 60
+}
+
+// WorkforceUtilizationRequest for GET /reports/analytics/workforce-utilization
+type WorkforceUtilizationRequest struct {
+	OrgUnitID string `form:"orgUnitId" binding:"required,uuid"`
+	StartDate string `form:"startDate" binding:"required"`
+	EndDate   string `form:"endDate" binding:"required"`
+}
+
+// WorkforceUtilizationResponse reports workforce utilization for an org subtree.
+type WorkforceUtilizationResponse struct {
+	OrgUnitID            string  `json:"orgUnitId"`
+	OrgUnitName          string  `json:"orgUnitName"`
+	StartDate            string  `json:"startDate"`
+	EndDate              string  `json:"endDate"`
+	Headcount            int     `json:"headcount"`
+	UniquePresent        int     `json:"uniquePresent"`
+	WorkforceUtilization float64 `json:"workforceUtilization"`
+	OnSiteNow            int     `json:"onSiteNow"`
+	OnSiteRate           float64 `json:"onSiteRate"`
 }
 
 // DoorHeatmapResponse lists doors ranked by swipe volume.
@@ -176,7 +199,7 @@ type AttendanceTrendsRequest struct {
 	OrgUnitID   string `form:"orgUnitId" binding:"required,uuid"`
 	StartDate   string `form:"startDate" binding:"required"`
 	EndDate     string `form:"endDate" binding:"required"`
-	Granularity string `form:"granularity"` // daily | weekly | monthly
+	Granularity string `form:"granularity"` // daily | weekly | monthly | quarterly | yearly
 }
 
 // AttendanceTrendsResponse is time-series data for charts (avg hours + late rate).
