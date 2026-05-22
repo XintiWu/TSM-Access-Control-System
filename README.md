@@ -18,13 +18,14 @@ No extra demo CSV or handover documents are required—everything needed to run 
 8. [Access API](#access-api-port-8080)
 9. [Admin API](#admin-api-port-8081)
 10. [Report API](#report-api-port-8082)
-11. [Permission model](#permission-model)
-12. [Observability](#observability)
-13. [Repository layout](#repository-layout)
-14. [Testing](#testing)
-15. [Troubleshooting](#troubleshooting)
-16. [Git hooks](#git-hooks)
-17. [Local-only files](#local-only-files)
+11. [Report UI and org tree](#report-ui-and-org-tree)
+12. [Permission model](#permission-model)
+13. [Observability](#observability)
+14. [Repository layout](#repository-layout)
+15. [Testing](#testing)
+16. [Troubleshooting](#troubleshooting)
+17. [Git hooks](#git-hooks)
+18. [Local-only files](#local-only-files)
 
 ---
 
@@ -286,9 +287,9 @@ All endpoints require header **`X-User-ID`** (employee UUID). Authorization uses
 
 ### Charts UI (recommended)
 
-Open **http://localhost:8082/ui/**
+Open **http://localhost:8082/ui/** — see [Report UI and org tree](#report-ui-and-org-tree) for hierarchy and locked org dropdown behavior.
 
-- Switch persona (CEO, manager, employee)
+- Switch persona (CEO, manager, employee); org list shows **only units in your subtree**
 - Department summary, sub-unit comparison (when children exist), door heatmap, attendance trends
 - Download CSV / PDF links
 
@@ -372,6 +373,49 @@ curl -s -H "X-User-ID: $MANAGER" \
 
 ---
 
+## Report UI and org tree
+
+**Recommended entry for Slow Path demos:** [http://localhost:8082/ui/](http://localhost:8082/ui/) (after `make up`).
+
+### Demo organization tree
+
+```text
+TSMC Corp（全公司 root）
+└── Engineering（處）
+    └── Team-A（課）
+```
+
+Each row in `org_unit` has a `materialized_path`. A manager may only query org units **inside their own path prefix** (self + descendants). Querying a parent org (e.g. Team-A manager selecting “全公司”) returns **HTTP 403** from the API.
+
+### How to use the UI
+
+1. Open **http://localhost:8082/ui/**
+2. **登入身份** — sets `X-User-ID` and role (CEO / VP / 課長 / 員工).
+3. **組織單位** — dropdown lists **only org units you are allowed to see** (locked units are hidden; a blue hint shows what is locked).
+4. Click **重新載入圖表** — department summary, sub-unit chart (if any children), heatmap, attendance trends.
+5. **CEO** at **TSMC Corp** shows the executive overview block and sub-unit comparison (Engineering vs Team-A).
+
+| Demo login (toolbar) | Default org | Can select in dropdown |
+|----------------------|-------------|----------------------|
+| CEO — 全公司 | TSMC Corp | Corp, Engineering, Team-A |
+| VP — Engineering | Engineering | Engineering, Team-A only |
+| 課長 — Team-A | Team-A | **Team-A only** |
+| 員工 | — | Org hidden; personal tab only |
+
+### Verify enforcement (optional)
+
+```bash
+# Team manager → Team-A: OK
+curl -s -o /dev/null -w "%{http_code}\n" -H "X-User-ID: cccccccc-cccc-cccc-cccc-cccccccccccc" \
+  "http://localhost:8082/reports/department?orgUnitId=a0000000-0000-0000-0000-000000000003&startDate=2026-05-01&endDate=2026-05-22"
+
+# Same manager → Corp root: 403
+curl -s -H "X-User-ID: cccccccc-cccc-cccc-cccc-cccccccccccc" \
+  "http://localhost:8082/reports/department?orgUnitId=a0000000-0000-0000-0000-000000000001&startDate=2026-05-01&endDate=2026-05-22"
+```
+
+---
+
 ## Permission model
 
 | Role | Report scope |
@@ -386,6 +430,7 @@ Rules enforced in report-api:
 - `orgUnitId` in requests must be inside the requester’s subtree (`IsInSubtree` on `materialized_path`).
 - Otherwise HTTP **403**.
 - Employees do not see department / heatmap / trend tabs in `/ui/`.
+- The `/ui/` org dropdown mirrors the same rules (only permitted units are listed).
 
 ---
 

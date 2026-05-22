@@ -1,4 +1,4 @@
-.PHONY: up down build seed migrate demo demo-ban demo-report demo-full demo-passback-alert swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo load-shift-change shift-change-prep seed-load-users
+.PHONY: up down build seed migrate demo demo-ban demo-report demo-full demo-passback-alert swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo load-shift-change shift-change-prep seed-load-users test-report-cache benchmark-report-api
 
 # Install repo git hooks (strips Cursor Co-authored-by from commits)
 hooks:
@@ -135,6 +135,14 @@ load-shift-change:
 
 # Optional: seed 90k synthetic employees into ClickHouse (slow; for report/analytics demos)
 LOAD_USER_COUNT ?= 90000
+test-report-cache:
+	@chmod +x scripts/test-report-cache.sh
+	@./scripts/test-report-cache.sh
+
+benchmark-report-api:
+	@chmod +x scripts/benchmark-report-api.sh
+	@./scripts/benchmark-report-api.sh
+
 seed-load-users:
 	@chmod +x scripts/gen-load-users-sql.sh
 	@./scripts/gen-load-users-sql.sh $(LOAD_USER_COUNT) > clickhouse/seed-load-users.sql

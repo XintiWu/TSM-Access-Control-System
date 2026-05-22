@@ -136,12 +136,8 @@
       </select>
     </div>
     <div>
-      <label>組織單位（部門報表）</label>
-      <select id="orgSelect">
-        <option value="a0000000-0000-0000-0000-000000000001">TSMC Corp（全公司）</option>
-        <option value="a0000000-0000-0000-0000-000000000002">Engineering</option>
-        <option value="a0000000-0000-0000-0000-000000000003" selected>Team-A</option>
-      </select>
+      <label>組織單位（僅顯示您有權限的子樹）</label>
+      <select id="orgSelect"></select>
     </div>
     <div>
       <label>時間粒度</label>
@@ -169,6 +165,7 @@
 
   <main>
     <div id="roleHint" class="role-hint"></div>
+    <div id="orgScopeHint" class="role-hint" style="border-color:rgba(59,130,246,0.35);background:rgba(59,130,246,0.08);color:#93c5fd"></div>
 
     <nav class="tabs" id="tabNav">
       <button type="button" data-tab="dept" class="active">部門報表</button>
@@ -237,14 +234,62 @@
     const API = window.location.origin;
     const charts = {};
 
+    // Demo org tree (matches clickhouse/seed.sql materialized_path)
+    const ORG_UNITS = [
+      { id: 'a0000000-0000-0000-0000-000000000001', name: 'TSMC Corp（全公司）', path: '/a0000000-0000-0000-0000-000000000001/' },
+      { id: 'a0000000-0000-0000-0000-000000000002', name: 'Engineering（處）', path: '/a0000000-0000-0000-0000-000000000001/a0000000-0000-0000-0000-000000000002/' },
+      { id: 'a0000000-0000-0000-0000-000000000003', name: 'Team-A（課）', path: '/a0000000-0000-0000-0000-000000000001/a0000000-0000-0000-0000-000000000002/a0000000-0000-0000-0000-000000000003/' }
+    ];
+
     const ROLE_HINTS = {
       CEO: '可查看全公司組織子樹：部門報表、門禁熱點、考勤趨勢、稽核與匯出。',
       CFO: '同 CEO 層級（財務長）。',
-      VP: '可查看所屬處/部門及旗下子單位。',
-      DIRECTOR: '可查看所屬處/部門及旗下子單位。',
-      TEAM_MANAGER: '可查看所屬團隊成員的部門報表與分析圖表。',
+      VP: '僅能選擇 Engineering 與其下屬 Team-A；無法選全公司（後端亦會 403）。',
+      DIRECTOR: '僅能選擇所屬處/部門及其下屬單位。',
+      TEAM_MANAGER: '僅能選擇 Team-A；無法選上層 Engineering 或全公司。',
       EMPLOYEE: '僅能查看個人出勤與自己的稽核紀錄；部門/熱點/趨勢分頁已隱藏。'
     };
+
+    function isInSubtree(requesterPath, targetPath) {
+      return targetPath.length >= requesterPath.length && targetPath.startsWith(requesterPath);
+    }
+
+    function allowedOrgUnits(role, requesterOrgId) {
+      const requester = ORG_UNITS.find(o => o.id === requesterOrgId);
+      if (!requester) return [];
+      if (role === 'CEO' || role === 'CFO') return ORG_UNITS.slice();
+      return ORG_UNITS.filter(o => isInSubtree(requester.path, o.path));
+    }
+
+    function rebuildOrgSelect() {
+      const { role, org: requesterOrgId } = selectedRole();
+      const allowed = allowedOrgUnits(role, requesterOrgId);
+      const select = document.getElementById('orgSelect');
+      const prev = select.value;
+      select.innerHTML = '';
+      allowed.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.name;
+        select.appendChild(opt);
+      });
+      if (allowed.some(o => o.id === prev)) select.value = prev;
+      else if (allowed.some(o => o.id === requesterOrgId)) select.value = requesterOrgId;
+      else if (allowed.length) select.value = allowed[0].id;
+
+      const locked = ORG_UNITS.filter(o => !allowed.some(a => a.id === o.id)).map(o => o.name);
+      const hint = document.getElementById('orgScopeHint');
+      if (role === 'EMPLOYEE') {
+        hint.textContent = '';
+        hint.classList.add('hidden');
+      } else if (locked.length === 0) {
+        hint.textContent = `🔓 組織範圍：可選 ${allowed.length} 個單位（全公司子樹）。`;
+        hint.classList.remove('hidden');
+      } else {
+        hint.textContent = `🔒 已鎖定上層/其他單位：${locked.join('、')}。您僅可查看：${allowed.map(o => o.name).join('、')}。`;
+        hint.classList.remove('hidden');
+      }
+    }
 
     function monthStart() {
       const d = new Date();
@@ -287,7 +332,10 @@
       if (isEmployee) {
         document.querySelector('[data-tab="personal"]').click();
       }
-      document.getElementById('orgSelect').closest('div').classList.toggle('hidden', isEmployee);
+      const orgBlock = document.getElementById('orgSelect').closest('div');
+      orgBlock.classList.toggle('hidden', isEmployee);
+      if (!isEmployee) rebuildOrgSelect();
+      else document.getElementById('orgScopeHint').classList.add('hidden');
     }
 
     const CORP_ROOT = 'a0000000-0000-0000-0000-000000000001';
@@ -527,11 +575,11 @@
     }
 
     document.getElementById('roleSelect').addEventListener('change', () => {
-      const opt = document.getElementById('roleSelect').selectedOptions[0];
-      document.getElementById('orgSelect').value = opt.dataset.org;
       updateTabsForRole();
       refreshAll();
     });
+
+    document.getElementById('orgSelect').addEventListener('change', () => refreshAll());
 
     document.getElementById('tabNav').addEventListener('click', (ev) => {
       const btn = ev.target.closest('button[data-tab]');
@@ -547,6 +595,7 @@
     document.getElementById('startDate').value = monthStart();
     document.getElementById('endDate').value = todayStr();
     updateTabsForRole();
+    rebuildOrgSelect();
     refreshAll();
   </script>
 </body>
