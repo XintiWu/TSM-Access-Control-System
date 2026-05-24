@@ -22,6 +22,7 @@ spec:
       containers:
       - name: admin-api
         image: asia-east1-docker.pkg.dev/access-api-497314/access-api-repo/admin-api:v1
+        imagePullPolicy: Always
         ports:
         - containerPort: 8081
         resources:

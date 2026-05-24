@@ -16,8 +16,7 @@ spec:
     - api.your-domain.com
     secretName: api-tls-secret # cert-manager 會將取得的憑證存入此 Secret
   rules:
-  - host: api.your-domain.com
-    http:
+  - http:
       paths:
       - path: /access
         pathType: Prefix
@@ -33,7 +32,14 @@ spec:
             name: admin-api
             port:
               number: 80
-      - path: /report
+      - path: /reports
+        pathType: Prefix
+        backend:
+          service:
+            name: report-api
+            port:
+              number: 80
+      - path: /ui
         pathType: Prefix
         backend:
           service:

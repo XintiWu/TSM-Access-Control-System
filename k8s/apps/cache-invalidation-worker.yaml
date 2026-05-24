@@ -18,6 +18,7 @@ spec:
       containers:
       - name: cache-invalidation-worker
         image: asia-east1-docker.pkg.dev/access-api-497314/access-api-repo/cache-invalidation-worker:v1
+        imagePullPolicy: Always
         resources:
           requests:
             cpu: 50m
