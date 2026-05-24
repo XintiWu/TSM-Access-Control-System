@@ -219,7 +219,7 @@ func (h *ReportHandler) Export(c *gin.Context) {
 	}
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	requestTotal.WithLabelValues("export", "200").Inc()
-	c.Writer.Write(data)
+	_, _ = c.Writer.Write(data)
 }
 
 // ExportJobCreate handles POST /reports/export/jobs (async export)
@@ -301,7 +301,7 @@ func (h *ReportHandler) ExportJobGet(c *gin.Context) {
 			c.Header("Content-Type", "text/csv")
 		}
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", name))
-		io.Copy(c.Writer, f)
+		_, _ = io.Copy(c.Writer, f)
 		return
 	}
 	c.JSON(http.StatusOK, job)
