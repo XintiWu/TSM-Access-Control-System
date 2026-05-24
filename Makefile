@@ -92,6 +92,10 @@ test-e2e-pipeline:
 verify-pipeline:
 	@./scripts/verify-pipeline.sh
 
+verify-performance:
+	@chmod +x scripts/verify-performance.sh
+	@./scripts/verify-performance.sh
+
 demo-report:
 	@chmod +x scripts/demo-report.sh
 	@./scripts/demo-report.sh

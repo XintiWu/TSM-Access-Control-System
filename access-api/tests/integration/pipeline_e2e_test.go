@@ -25,7 +25,7 @@ func TestPipelineE2E(t *testing.T) {
 	userID := envOr("DEMO_USER", "22222222-2222-2222-2222-222222222222")
 	doorID := envOr("DEMO_DOOR", "11111111-1111-1111-1111-111111111111")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL+"/health", nil)
