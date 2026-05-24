@@ -1,0 +1,97 @@
+name: Go CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # 第一階段：靜態代碼分析與排版檢查 (Code Quality Assurance - 10%)
+  lint:
+    name: Code Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: false
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
+          # 分別檢查四個微服務模組的 Linting
+          args: --timeout=5m
+          working-directory: ./access-api
+          
+      - name: Run golangci-lint for admin-api
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
+          args: --timeout=5m
+          working-directory: ./admin-api
+
+      - name: Run golangci-lint for report-api
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
+          args: --timeout=5m
+          working-directory: ./report-api
+
+  # 第二階段：單元測試與集成測試 (System Testing & Validation - 25%)
+  test:
+    name: Unit & E2E Integration Testing
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      # 1. 執行單元測試 (Unit Tests)
+      - name: Run Unit Tests
+        run: |
+          cd access-api && go test -v ./...
+          cd ../admin-api && go test -v ./...
+          cd ../cache-invalidation-worker && go test -v ./...
+          cd ../report-api && go test -v ./...
+
+      # 2. 啟動 Docker Compose 服務，供集成與 E2E 測試使用
+      - name: Start Docker Compose Services
+        run: |
+          docker compose up -d redis mariadb kafka clickhouse
+          echo "Waiting for database and message queue services to initialize..."
+          sleep 20 # 等待 Kafka 和 Clickhouse 完成健康檢查
+
+      # 3. 初始化數據與資料庫 Schema
+      - name: Initialize Test Schemas & Seed Data
+        run: |
+          make init-kafka-topics
+          make schema-ch
+          make schema-ch-migrate
+          make seed-ch
+          make seed
+
+      # 4. 執行整合測試 (Integration Tests)
+      - name: Run E2E Integration Tests
+        run: |
+          make test-e2e-pipeline
+
+      # 5. 驗證整條事件流流水線 (Pipeline Validation)
+      - name: Verify Event Pipeline
+        run: |
+          make verify-pipeline
+
+      # 6. 清理 Docker 容器
+      - name: Shutdown Docker Compose
+        if: always()
+        run: docker compose down -v

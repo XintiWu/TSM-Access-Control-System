@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cache-invalidation-worker
+  namespace: access-control
+  labels:
+    app: cache-invalidation-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cache-invalidation-worker
+  template:
+    metadata:
+      labels:
+        app: cache-invalidation-worker
+    spec:
+      containers:
+      - name: cache-invalidation-worker
+        image: asia-east1-docker.pkg.dev/access-api-497314/access-api-repo/cache-invalidation-worker:v1
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        env:
+        - name: KAFKA_BROKERS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_BROKERS
+        - name: KAFKA_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_TOPIC_PERMISSION
+        - name: KAFKA_GROUP
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_GROUP_CACHE
+        - name: REDIS_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: REDIS_ADDR
