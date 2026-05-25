@@ -169,7 +169,7 @@ make demo-full
 | `make schema-ch` | Apply `clickhouse/init.sql` |
 | `make schema-ch-migrate` | Apply `clickhouse/migrate-analytics.sql` (door table, MVs, analytics) |
 | `make seed-ch` | Load demo org/employees/doors from `clickhouse/seed.sql` |
-| `make seed` | Redis card UID mappings via `scripts/seed-redis.sh` |
+| `make seed` | Redis card UID mappings via `scripts/utils/seed-redis.sh` |
 | `make swipe` | One simulated IN swipe (`DIRECTION=OUT` supported) |
 | `make demo` | Anti-passback demo script |
 | `make demo-ban` | Ban → swipe DENY → unban flow |
@@ -496,7 +496,7 @@ clickhouse/
   migrate-analytics.sql  # Door table, traffic MV, analytics extras
   seed.sql               # Demo org, employees, doors (single-line INSERTs)
 monitoring/              # Prometheus, Grafana, dashboards, alerts
-scripts/                 # demo-full-flow.sh, seed-redis.sh, verify-pipeline.sh, ...
+scripts/                 # demo/ and utils/ subdirectories containing shell scripts
 docker-compose.yml
 Makefile
 ```

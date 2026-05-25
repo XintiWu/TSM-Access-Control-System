@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generate ClickHouse seed for synthetic load-test employees (optional, for reporting realism).
-# Usage: ./scripts/gen-load-users-sql.sh 90000 > clickhouse/seed-load-users.sql
+# Usage: ./scripts/utils/gen-load-users-sql.sh 90000 > clickhouse/seed-load-users.sql
 #        make seed-load-users   # applies via clickhouse-client
 
 set -euo pipefail
