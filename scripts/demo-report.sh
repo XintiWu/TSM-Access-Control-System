@@ -2,6 +2,19 @@
 # demo-report.sh — Report API + analytics demo (roles, late rate, source_ip)
 set -euo pipefail
 
+# Load environment variables if present
+ENV_FILE="$(dirname "$0")/../.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Derive REDIS_HOST and REDIS_PORT from REDIS_ADDR if set
+if [ -n "${REDIS_ADDR:-}" ]; then
+  REDIS_HOST="${REDIS_ADDR%:*}"
+  REDIS_PORT="${REDIS_ADDR#*:}"
+fi
+
+
 REPORT_URL=${REPORT_URL:-http://localhost:8082}
 ACCESS_URL=${ACCESS_URL:-http://localhost:8080}
 EMPLOYEE_ID="22222222-2222-2222-2222-222222222222"

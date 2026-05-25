@@ -2,6 +2,19 @@
 # Generate 50+ ANTI_PASSBACK denials in ~1 minute for Grafana/Prometheus alert demo.
 set -euo pipefail
 
+# Load environment variables if present
+ENV_FILE="$(dirname "$0")/../.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Derive REDIS_HOST and REDIS_PORT from REDIS_ADDR if set
+if [ -n "${REDIS_ADDR:-}" ]; then
+  REDIS_HOST="${REDIS_ADDR%:*}"
+  REDIS_PORT="${REDIS_ADDR#*:}"
+fi
+
+
 API="${API:-http://localhost:8080}"
 USER="${USER:-22222222-2222-2222-2222-222222222222}"
 DOOR="${DOOR:-11111111-1111-1111-1111-111111111111}"

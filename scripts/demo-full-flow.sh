@@ -2,6 +2,19 @@
 # 完整演示：大量人流刷卡 → Kafka → ClickHouse → 報表 / 匯出 / Grafana 指標
 set -euo pipefail
 
+# Load environment variables if present
+ENV_FILE="$(dirname "$0")/../.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Derive REDIS_HOST and REDIS_PORT from REDIS_ADDR if set
+if [ -n "${REDIS_ADDR:-}" ]; then
+  REDIS_HOST="${REDIS_ADDR%:*}"
+  REDIS_PORT="${REDIS_ADDR#*:}"
+fi
+
+
 API="${API:-http://localhost:8080}"
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 TODAY=$(date +%Y-%m-%d)
@@ -75,7 +88,7 @@ echo "  已送出約 ${total} 次刷卡請求"
 echo ""
 echo ">>> [3/5] 等待 aggregation-worker 寫入 ClickHouse（15s）"
 sleep 15
-EVENTS=$(docker compose exec -T clickhouse clickhouse-client --password password123 \
+EVENTS=$(docker compose exec -T clickhouse clickhouse-client --password ${CLICKHOUSE_PASSWORD:-password123} \
   --query "SELECT count() FROM access_control.inout_events WHERE toDate(event_time) = today()" 2>/dev/null || echo "?")
 echo "  今日 inout_events 筆數: ${EVENTS}"
 

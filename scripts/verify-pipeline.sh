@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load environment variables if present
+ENV_FILE="$(dirname "$0")/../.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Derive REDIS_HOST and REDIS_PORT from REDIS_ADDR if set
+if [ -n "${REDIS_ADDR:-}" ]; then
+  REDIS_HOST="${REDIS_ADDR%:*}"
+  REDIS_PORT="${REDIS_ADDR#*:}"
+fi
+
+
 API="${API_URL:-http://localhost:8080}"
 USER="${DEMO_USER:-22222222-2222-2222-2222-222222222222}"
 DOOR="${DEMO_DOOR:-11111111-1111-1111-1111-111111111111}"
@@ -51,7 +64,7 @@ if [[ -z "$EVENT_ID" || "$EVENT_ID" == "null" ]]; then
 fi
 
 ch_query() {
-  docker compose exec -T clickhouse clickhouse-client --password password123 --database=access_control --query="$1" 2>/dev/null
+  docker compose exec -T clickhouse clickhouse-client --password ${CLICKHOUSE_PASSWORD:-password123} --database=access_control --query="$1" 2>/dev/null
 }
 
 echo "Polling ClickHouse for eventId=${EVENT_ID} (timeout ${POLL_TIMEOUT}s)..."

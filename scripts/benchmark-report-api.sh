@@ -2,6 +2,19 @@
 # Benchmark report-api JSON endpoints; checks p95 against 200ms SLO (default).
 set -euo pipefail
 
+# Load environment variables if present
+ENV_FILE="$(dirname "$0")/../.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Derive REDIS_HOST and REDIS_PORT from REDIS_ADDR if set
+if [ -n "${REDIS_ADDR:-}" ]; then
+  REDIS_HOST="${REDIS_ADDR%:*}"
+  REDIS_PORT="${REDIS_ADDR#*:}"
+fi
+
+
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 MANAGER="${MANAGER:-cccccccc-cccc-cccc-cccc-cccccccccccc}"
 ORG="${ORG:-a0000000-0000-0000-0000-000000000003}"

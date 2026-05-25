@@ -1,0 +1,15 @@
+---
+description: Do not add Cursor as git commit co-author
+alwaysApply: true
+---
+
+# Git commits — no Cursor attribution
+
+When creating git commits in this repository:
+
+- **Never** use `git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>"` or any `--trailer` for Cursor.
+- **Never** add `Co-authored-by: Cursor`, `cursoragent`, or `cursoragent@cursor.com` to commit messages.
+- Use plain commits only: `git commit -m "message"` (no co-author trailers).
+- If the user asks to commit, write the message yourself and run a normal `git commit -m` without attribution trailers.
+
+This keeps GitHub Contributors showing only the human author.

@@ -24,3 +24,6 @@ report_demo.pdf
 report_demo_ceo.pdf
 report_export.pdf
 report.csv
+
+# Environment variables
+.env

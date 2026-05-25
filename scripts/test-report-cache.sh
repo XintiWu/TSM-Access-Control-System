@@ -2,6 +2,19 @@
 # Verifies report-api Redis cache: repeat hits are fast; new swipes may not appear until cache expires or is cleared.
 set -euo pipefail
 
+# Load environment variables if present
+ENV_FILE="$(dirname "$0")/../.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Derive REDIS_HOST and REDIS_PORT from REDIS_ADDR if set
+if [ -n "${REDIS_ADDR:-}" ]; then
+  REDIS_HOST="${REDIS_ADDR%:*}"
+  REDIS_PORT="${REDIS_ADDR#*:}"
+fi
+
+
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 ACCESS_URL="${ACCESS_URL:-http://localhost:8080}"
 REDIS="${REDIS:-docker compose exec -T redis redis-cli}"
