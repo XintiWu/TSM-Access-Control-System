@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed PACS - Cloud Native Report</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Inter:wght@300;400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    },
+                    colors: {
+                        cyber: {
+                            bg: '#030712',
+                            card: '#0f172a',
+                            border: '#1e293b',
+                            cyan: '#06b6d4',
+                            blue: '#3b82f6',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .slide-enter {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        .slide-active {
+            opacity: 1;
+            transform: translateX(0);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .slide-exit {
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.3s ease-in-out;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="bg-cyber-bg text-slate-100 font-sans min-h-screen overflow-hidden flex flex-col justify-between">
+
+    <!-- Top Navigation / Progress Indicator -->
+    <header class="border-b border-cyber-border bg-cyber-bg/80 backdrop-blur-md px-8 py-4 flex justify-between items-center z-50">
+        <div class="flex items-center space-x-3">
+            <div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-cyber-cyan to-cyber-blue flex items-center justify-center shadow-lg shadow-cyber-cyan/20">
+                <i class="fa-solid fa-shield-halved text-white text-sm"></i>
+            </div>
+            <div>
+                <span class="text-xs text-cyber-cyan font-mono tracking-widest font-bold block">CLOUD-NATIVE ARCHITECTURE</span>
+                <span class="text-sm font-semibold tracking-wide text-slate-200">Distributed PACS - Group 9</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-6">
+            <span class="text-xs bg-slate-800 text-slate-300 font-mono px-2.5 py-1 rounded-full border border-cyber-border">
+                ⚡ Fast Path vs 🐢 Slow Path (ClickHouse OLAP)
+            </span>
+            <div class="text-xs text-slate-400 font-mono">
+                <span id="current-slide-num">1</span> / <span id="total-slides-num">18</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Presentation Workspace -->
+    <main class="flex-grow flex items-center justify-center p-4 relative overflow-hidden">
+        
+        <!-- Background Ambient Glow -->
+        <div class="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyber-cyan/5 rounded-full blur-[120px] pointer-events-none"></div>
+        <div class="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-[600px] h-[600px] bg-cyber-blue/5 rounded-full blur-[150px] pointer-events-none"></div>
+
+        <!-- Carousel Container (Fixed Aspect Ratio Box) -->
+        <div class="w-full max-w-6xl aspect-[16/9] bg-cyber-card/60 border border-cyber-border/80 rounded-3xl p-8 shadow-2xl backdrop-blur-xl flex flex-col justify-between relative overflow-hidden">
+            
+            <!-- Slide Contents Container -->
+            <div id="slides-container" class="relative flex-grow flex flex-col justify-center">
+                
+                <!-- Slide 1: Title -->
+                <div class="slide hidden flex flex-col justify-center items-center text-center h-full">
+                    <span class="px-4 py-1.5 rounded-full bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/20 font-mono text-sm uppercase tracking-widest mb-6 animate-pulse">
+                        Course Project Presentation
+                    </span>
+                    <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent leading-none mb-4">
+                        Distributed Physical Access Control System
+                    </h1>
+                    <p class="text-xl md:text-2xl text-cyber-cyan font-mono tracking-wide mb-8">
+                        Event-Driven Access Control with ClickHouse OLAP
+                    </p>
+                    <div class="w-24 h-1 bg-gradient-to-r from-cyber-cyan to-cyber-blue rounded-full mb-8"></div>
+                    <p class="text-slate-400 max-w-xl text-sm leading-relaxed mb-10 font-mono">
+                        "Fast door decisions, reliable event persistence, and hierarchical attendance reporting."
+                    </p>
+                    <div class="grid grid-cols-4 gap-6 max-w-2xl text-xs font-mono text-slate-500">
+                        <div class="bg-cyber-bg/50 px-4 py-2 rounded-xl border border-cyber-border">林采穎</div>
+                        <div class="bg-cyber-bg/50 px-4 py-2 rounded-xl border border-cyber-border">陳沐頤</div>
+                        <div class="bg-cyber-bg/50 px-4 py-2 rounded-xl border border-cyber-border">吳昕醍</div>
+                        <div class="bg-cyber-bg/50 px-4 py-2 rounded-xl border border-cyber-border">胡仕杰</div>
+                    </div>
+                </div>
+
+                <!-- Slide 2: Problem Statement -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 02 / Problem Statement</span>
+                        <h2 class="text-3xl font-extrabold text-white">為什麼這個系統極具挑戰？</h2>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
+                        <div class="bg-cyber-bg/40 p-6 rounded-2xl border border-cyber-border flex flex-col justify-between h-48">
+                            <div class="text-cyber-cyan text-4xl font-extrabold font-mono">90,000+</div>
+                            <div>
+                                <h3 class="text-white font-bold text-lg mb-1">超大員工基數</h3>
+                                <p class="text-xs text-slate-400 leading-relaxed">分散於多個廠區、辦公大樓，交班尖峰期瞬間湧入龐大刷卡流量。</p>
+                            </div>
+                        </div>
+                        <div class="bg-cyber-bg/40 p-6 rounded-2xl border border-cyber-border flex flex-col justify-between h-48">
+                            <div class="text-cyber-cyan text-4xl font-extrabold font-mono">&lt; 50ms</div>
+                            <div>
+                                <h3 class="text-white font-bold text-lg mb-1">毫秒級開門決策</h3>
+                                <p class="text-xs text-slate-400 leading-relaxed">門禁設備必須在極短時間內完成權限校驗與 Anti-passback 判定，拒絕卡頓。</p>
+                            </div>
+                        </div>
+                        <div class="bg-cyber-bg/40 p-6 rounded-2xl border border-cyber-border flex flex-col justify-between h-48">
+                            <div class="text-cyber-blue text-4xl font-extrabold font-mono">OLAP Query</div>
+                            <div>
+                                <h3 class="text-white font-bold text-lg mb-1">繁雜的層級報表</h3>
+                                <p class="text-xs text-slate-400 leading-relaxed">主管需要跨廠區、跨部門多維度的考勤稽核，歷史海量事件的分析對傳統 DB 負擔極重。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-cyber-rose/10 border border-cyber-rose/20 text-cyber-rose rounded-xl p-4 text-xs font-mono flex items-center space-x-3">
+                        <i class="fa-solid fa-triangle-exclamation text-base"></i>
+                        <span><b>核心技術衝突點：</b> 高頻寫入與即時分析並存。傳統 RDBMS 面臨大表查詢卡頓，因此我們導入事件驅動搭配 <b>ClickHouse 列式儲存引擎</b> 解決 OLAP 報表難題。</span>
+                    </div>
+                </div>
+
+                <!-- Slide 3: User Stories / Design Thinking -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 03 / User Persona & Design Thinking</span>
+                        <h2 class="text-3xl font-extrabold text-white">使用者痛點與設計推導</h2>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-auto">
+                        <!-- Employee Cards -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-6 rounded-2xl relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-4 text-8xl text-cyber-cyan/5"><i class="fa-solid fa-id-card"></i></div>
+                            <span class="px-2 py-0.5 rounded bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/20 text-[10px] font-mono tracking-wider">PERSONA 1: 廠區員工</span>
+                            <h3 class="text-lg font-bold text-slate-200 mt-2 mb-4 flex items-center gap-2">
+                                <i class="fa-solid fa-user-gear text-cyber-cyan"></i> 員工上班刷卡體驗
+                            </h3>
+                            <blockquote class="italic text-slate-300 text-sm mb-4 border-l-2 border-slate-700 pl-3">
+                                「上班打卡時間緊迫，要是門禁系統卡個幾秒，後方就會大排長龍，導致我們遲到！」
+                            </blockquote>
+                            <div class="space-y-1 text-xs text-slate-400">
+                                <p><b class="text-cyber-cyan">・Pain Point:</b> 系統反應遲鈍、尖峰時刻排隊焦慮。</p>
+                                <p><b class="text-cyber-cyan">・Requirement:</b> 門禁驗證優先追求 <b>極低延遲（Latency First）</b>。</p>
+                            </div>
+                        </div>
+
+                        <!-- Manager Cards -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-6 rounded-2xl relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-4 text-8xl text-cyber-blue/5"><i class="fa-solid fa-chart-line"></i></div>
+                            <span class="px-2 py-0.5 rounded bg-cyber-blue/10 text-cyber-blue border border-cyber-blue/20 text-[10px] font-mono tracking-wider">PERSONA 2: 部門主管</span>
+                            <h3 class="text-lg font-bold text-slate-200 mt-2 mb-4 flex items-center gap-2">
+                                <i class="fa-solid fa-user-tie text-cyber-blue"></i> 主管管理與稽核
+                            </h3>
+                            <blockquote class="italic text-slate-300 text-sm mb-4 border-l-2 border-slate-700 pl-3">
+                                「我需要產出準確的出勤與稽核報表，如果資料有落差、延遲，會影響工時合規判定。」
+                            </blockquote>
+                            <div class="space-y-1 text-xs text-slate-400">
+                                <p><b class="text-cyber-blue">・Pain Point:</b> 大規模報表查詢緩慢、考勤資料落差。</p>
+                                <p><b class="text-cyber-blue">・Requirement:</b> 報表呈現優先追求 <b>極致精準與高分析效能（Accuracy & OLAP Performance First）</b>。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center font-mono text-sm text-slate-400">
+                        🔑 核心共識：系統必須依此分流成 <b>⚡ Fast Path (門禁決策)</b> 與 <b>🐢 Slow Path (ClickHouse 考勤分析)</b>。
+                    </div>
+                </div>
+
+                <!-- Slide 4: Requirements Mapping -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4 mb-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 04 / Requirements Mapping</span>
+                        <h2 class="text-3xl font-extrabold text-white">功能需求與雲原生架架對照表</h2>
+                    </div>
+                    <div class="overflow-x-auto flex-grow flex items-center">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-cyber-border text-cyber-cyan">
+                                    <th class="py-3 px-4 font-bold font-mono">系統需求 (Requirements)</th>
+                                    <th class="py-3 px-4 font-bold font-mono">雲原生技術實踐 (Implementations)</th>
+                                    <th class="py-3 px-4 font-bold font-mono">架構優勢 (Benefits)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-cyber-border text-slate-300">
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">&lt; 50ms 門禁驗證</td>
+                                    <td class="py-2.5 px-4 font-mono text-cyber-cyan">Stateless Access API + Redis Cache</td>
+                                    <td class="py-2.5 px-4">避免即時查詢資料庫，加速判定流程</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">Anti-passback (防重複進出)</td>
+                                    <td class="py-2.5 px-4 font-mono text-cyber-cyan">Redis 記憶體狀態儲存 (O(1))</td>
+                                    <td class="py-2.5 px-4">快速狀態比對，阻止跟隨入侵</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">極高併發事件緩衝與故障容錯</td>
+                                    <td class="py-2.5 px-4 font-mono text-cyber-cyan">Kafka (Message Queue) 異步吞吐</td>
+                                    <td class="py-2.5 px-4">DB 故障時仍能正常刷卡開門，實現流量削峰</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">亞秒級海量數據考勤報表</td>
+                                    <td class="py-2.5 px-4 font-mono text-cyber-blue"><b>ClickHouse 列式儲存引擎</b></td>
+                                    <td class="py-2.5 px-4">海量日誌聚合極快，支援高頻複雜報表分析</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">大規模自動化動態擴容</td>
+                                    <td class="py-2.5 px-4 font-mono text-cyber-blue">Kubernetes HPA (Horizontal Pod Autoscaler)</td>
+                                    <td class="py-2.5 px-4">高峰時段自動增長 API Pod，維持極致吞吐量</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">系統高可觀測性</td>
+                                    <td class="py-2.5 px-4 font-mono text-cyber-blue">Prometheus + Grafana Dashboard</td>
+                                    <td class="py-2.5 px-4">即時觀測 QPS、Kafka Lag 與 ClickHouse 寫入指標</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Slide 5: High-Level Architecture (Interactive Flow) -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 05 / High-Level Architecture</span>
+                        <h2 class="text-3xl font-extrabold text-white">核心技術架構：Fast vs Slow Path 解耦</h2>
+                    </div>
+                    
+                    <!-- Diagram Container -->
+                    <div class="bg-cyber-bg/60 border border-cyber-border p-6 rounded-2xl flex flex-col justify-center items-center my-auto h-72 relative">
+                        <!-- Legend -->
+                        <div class="absolute top-3 right-4 flex space-x-4 text-[10px] font-mono">
+                            <span class="flex items-center gap-1.5"><span class="w-3 h-1.5 bg-cyber-cyan rounded-full animate-pulse"></span> Fast Path (門禁決策)</span>
+                            <span class="flex items-center gap-1.5"><span class="w-3 h-1.5 bg-cyber-blue rounded-full"></span> Slow Path (ClickHouse 報表)</span>
+                        </div>
+                        
+                        <div class="flex items-center justify-between w-full max-w-4xl px-4 relative">
+                            <!-- Flow Connector Lines -->
+                            <svg class="absolute inset-0 w-full h-full pointer-events-none z-0" style="min-height: 120px;">
+                                <!-- Fast Path Line -->
+                                <path d="M 50,60 H 220" stroke="#06b6d4" stroke-width="2" stroke-dasharray="4,4" class="animate-[dash_10s_linear_infinite]" fill="none"/>
+                                <path d="M 220,60 H 380" stroke="#06b6d4" stroke-width="2" fill="none"/>
+                                <path d="M 220,60 V 20 H 550" stroke="#06b6d4" stroke-width="2" fill="none"/>
+                                <!-- Buffer Line to Kafka -->
+                                <path d="M 220,60 V 100 H 380" stroke="#3b82f6" stroke-width="2" fill="none"/>
+                                <!-- Slow Path Line -->
+                                <path d="M 460,100 H 550" stroke="#3b82f6" stroke-width="2" fill="none"/>
+                                <path d="M 630,100 H 720" stroke="#3b82f6" stroke-width="2" fill="none"/>
+                                <path d="M 720,100 V 60 H 830" stroke="#3b82f6" stroke-width="2" fill="none"/>
+                            </svg>
+
+                            <!-- Clients (Badge / Admin) -->
+                            <div class="flex flex-col space-y-8 z-10">
+                                <div class="bg-slate-800 border border-cyber-cyan/50 text-slate-200 px-3 py-1.5 rounded-lg text-center text-[10px] font-mono shadow-md w-24">
+                                    <i class="fa-solid fa-id-card text-cyber-cyan text-base mb-1 block"></i>
+                                    Badge Reader
+                                </div>
+                                <div class="bg-slate-800 border border-cyber-blue/30 text-slate-200 px-3 py-1.5 rounded-lg text-center text-[10px] font-mono shadow-md w-24">
+                                    <i class="fa-solid fa-laptop-code text-cyber-blue text-base mb-1 block"></i>
+                                    Dashboard
+                                </div>
+                            </div>
+
+                            <!-- Fast Access Layer (Access API) -->
+                            <div class="flex flex-col space-y-6 z-10 items-center">
+                                <div class="bg-slate-900 border-2 border-cyber-cyan text-white font-bold px-4 py-3 rounded-xl text-center text-xs shadow-xl w-32">
+                                    <span class="text-[9px] text-cyber-cyan font-mono block">GATEWAY</span>
+                                    Access API
+                                </div>
+                            </div>
+
+                            <!-- Cache & Buffer (Redis & Kafka) -->
+                            <div class="flex flex-col space-y-6 z-10 items-center">
+                                <div class="bg-slate-900 border border-cyber-cyan text-white px-3 py-1.5 rounded-lg text-center text-[10px] font-mono w-28 shadow-md">
+                                    <i class="fa-solid fa-bolt text-cyber-cyan mb-1 text-xs block"></i>
+                                    Redis Cache
+                                    <span class="text-[8px] text-slate-500 block">AP-State / Blacklist</span>
+                                </div>
+                                <div class="bg-slate-900 border border-cyber-blue text-white px-3 py-1.5 rounded-lg text-center text-[10px] font-mono w-28 shadow-md">
+                                    <i class="fa-solid fa-database text-cyber-blue mb-1 text-xs block"></i>
+                                    Kafka MQ
+                                    <span class="text-[8px] text-slate-500 block">Shock Absorber</span>
+                                </div>
+                            </div>
+
+                            <!-- Worker & DB -->
+                            <div class="flex flex-col space-y-6 z-10 items-center">
+                                <div class="bg-slate-900 border border-cyber-blue text-white px-3 py-1.5 rounded-lg text-center text-[10px] font-mono w-28 shadow-md">
+                                    <i class="fa-solid fa-gears text-cyber-blue mb-1 text-xs block"></i>
+                                    DB Worker
+                                </div>
+                                <div class="bg-slate-900 border-2 border-cyber-blue text-white px-3 py-1.5 rounded-lg text-center text-[10px] font-mono w-28 shadow-md">
+                                    <i class="fa-solid fa-server text-cyber-blue mb-1 text-xs block"></i>
+                                    ClickHouse
+                                    <span class="text-[8px] text-slate-400 block">Columnar Storage</span>
+                                </div>
+                            </div>
+
+                            <!-- Report Server (Report API) -->
+                            <div class="flex flex-col space-y-6 z-10 items-center">
+                                <div class="bg-slate-900 border border-cyber-blue text-white font-bold px-4 py-3 rounded-xl text-center text-xs shadow-xl w-32">
+                                    <span class="text-[9px] text-cyber-blue font-mono block">REPORTING</span>
+                                    Report API
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-900/50 p-4 rounded-xl border border-cyber-border text-xs font-mono grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-cyber-cyan font-bold block">⚡ FAST PATH:</span>
+                            員工刷卡 ➔ Access API ➔ Redis 權限/防重複驗證 ➔ <b>直接回傳並開門 (延遲 &lt; 50ms)</b> ➔ 發送事件至 Kafka。
+                        </div>
+                        <div>
+                            <span class="text-cyber-blue font-bold block">🐢 SLOW PATH:</span>
+                            Kafka 事件 ➔ DB Worker 異步批次消費 ➔ 寫入 <b>ClickHouse Columnar DB</b> ➔ 高效完成考勤聚合 ➔ 提供亞秒級查詢。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 6: Access Operation Sequence Diagram -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 06 / Sequence Diagram</span>
+                        <h2 class="text-3xl font-extrabold text-white">開門決策時序：決策與寫入完全解耦</h2>
+                    </div>
+                    
+                    <!-- Sequence Flow representation -->
+                    <div class="bg-cyber-bg/50 border border-cyber-border rounded-xl p-4 my-auto">
+                        <div class="grid grid-cols-5 text-center text-xs font-mono border-b border-cyber-border pb-2 mb-4 text-slate-400">
+                            <div>Badge Reader</div>
+                            <div>Access API</div>
+                            <div>Redis Cache</div>
+                            <div>Kafka Queue</div>
+                            <div>Worker / ClickHouse</div>
+                        </div>
+                        <div class="space-y-3 font-mono text-xs">
+                            <div class="flex items-center justify-between bg-slate-900/50 p-2 rounded border border-cyber-cyan/20">
+                                <span class="text-cyber-cyan">1. Swipe Card (CardID, DoorID)</span>
+                                <span class="text-slate-500">➔</span>
+                                <span class="text-slate-300">Access API (接收請求)</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-900/50 p-2 rounded border border-cyber-cyan/20">
+                                <span class="text-slate-300">Access API</span>
+                                <span class="text-slate-500">➔</span>
+                                <span class="text-cyber-cyan">2. Fetch user status & check Anti-passback in Redis</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-emerald-950/40 p-2 rounded border border-emerald-500/20 text-emerald-400">
+                                <span>Redis (驗證合規)</span>
+                                <span>➔</span>
+                                <span>3. Return Valid & Open door decision (⏱️ &lt; 5ms)</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-cyber-blue/10 p-2 rounded border border-cyber-blue/20 text-cyber-blue">
+                                <span>4. Open door trigger sent to Reader (⚡ Fast Path Ended)</span>
+                                <span>➔</span>
+                                <span>Badge Reader Unlocks Immediately</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-900/50 p-2 rounded border border-slate-700">
+                                <span>Access API</span>
+                                <span>➔</span>
+                                <span class="text-slate-300">5. Publish raw swipe event to Kafka (Async Buffer)</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-900/50 p-2 rounded border border-slate-700">
+                                <span class="text-slate-400">DB Worker</span>
+                                <span>➔</span>
+                                <span class="text-slate-300">6. Batch write events as rows to <b>ClickHouse Columnar Storage</b> (🐢 Slow Path)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 7: Anti-Passback Design -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 07 / Anti-Passback Design</span>
+                        <h2 class="text-3xl font-extrabold text-white">防跟隨與重複進出機制 (Anti-Passback)</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                        <!-- State Transition Box -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-6 rounded-2xl">
+                            <h3 class="text-sm font-mono text-cyber-cyan mb-4 flex items-center gap-1.5">
+                                <i class="fa-solid fa-diagram-project"></i> 狀態機轉換模型 (State Machine)
+                            </h3>
+                            <div class="flex flex-col space-y-3 font-mono text-xs">
+                                <div class="p-2.5 rounded bg-slate-900 border border-slate-700 flex justify-between items-center">
+                                    <span class="text-slate-400">初始狀態: OUTSIDE</span>
+                                    <span>➔ 刷卡進入 ➔</span>
+                                    <span class="text-emerald-400">INSIDE (核准)</span>
+                                </div>
+                                <div class="p-2.5 rounded bg-slate-900 border border-slate-700 flex justify-between items-center">
+                                    <span class="text-emerald-400">當前狀態: INSIDE</span>
+                                    <span>➔ 再次刷卡進門 ➔</span>
+                                    <span class="text-rose-400">DENIED (拒絕: 重重複進)</span>
+                                </div>
+                                <div class="p-2.5 rounded bg-slate-900 border border-slate-700 flex justify-between items-center">
+                                    <span class="text-emerald-400">當前狀態: INSIDE</span>
+                                    <span>➔ 刷卡出門 ➔</span>
+                                    <span class="text-slate-400">OUTSIDE (核准)</span>
+                                </div>
+                                <div class="p-2.5 rounded bg-slate-900 border border-slate-700 flex justify-between items-center">
+                                    <span class="text-slate-400">當前狀態: OUTSIDE</span>
+                                    <span>➔ 刷卡出門 ➔</span>
+                                    <span class="text-rose-400">DENIED (拒絕: 重複出)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Redis Cache Schema -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-6 rounded-2xl flex flex-col justify-between">
+                            <div>
+                                <h3 class="text-sm font-mono text-cyber-cyan mb-3 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-code"></i> Redis 狀態存儲架構 (Fast Memory Schema)
+                                </h3>
+                                <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                    我們避免在每次進出刷卡時都去查詢 ClickHouse 列式資料庫，而是在 Redis 內定義高效率的實體記憶體雜湊：
+                                </p>
+                                <pre class="bg-cyber-bg p-3 rounded-lg text-[10px] text-cyber-cyan font-mono border border-cyber-border">
+# 員工狀態
+employee:{id}:state ➔ "INSIDE" | "OUTSIDE"
+
+# 前次門禁事件稽核
+employee:{id}:last_door ➔ "door_id_101"
+employee:{id}:last_time ➔ "1716611822"
+                                </pre>
+                            </div>
+                            <div class="bg-cyber-cyan/10 border border-cyber-cyan/20 p-3 rounded-lg text-[11px] text-cyber-cyan font-mono">
+                                💡 <b>特點：</b> 透過記憶體比對可達成 O(1) 複雜度的防跟隨校驗，並將歷史大數據日誌直接寫往 ClickHouse。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 8: Resilience / ClickHouse Down Scenario (Robust Static Comparison) -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 08 / Event-Driven Buffer & Resilience</span>
+                        <h2 class="text-3xl font-extrabold text-white">異步緩衝與斷連容錯機制</h2>
+                    </div>
+
+                    <!-- Clean Static Presentation Cards to prevent Presentation Failure -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto text-xs">
+                        <!-- Scenario 1: DB Online -->
+                        <div class="bg-slate-900/40 border border-emerald-500/30 p-5 rounded-2xl flex flex-col justify-between h-64">
+                            <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-emerald-400 font-bold font-mono"><i class="fa-solid fa-circle-check"></i> SCENARIO A: 正常批量寫入</span>
+                                    <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-mono border border-emerald-500/20">正常狀態</span>
+                                </div>
+                                <p class="text-slate-400 leading-relaxed mb-4">
+                                    當 ClickHouse 資料庫正常連接時，DB Worker 會從 Kafka 批次拉取事件日誌（例如：每積累 1,000 筆或等候 1 秒），以列式儲存最高效的方式<b>一次性寫入（Bulk Insert）</b>。
+                                </p>
+                            </div>
+                            <div class="bg-cyber-bg/80 p-3.5 rounded-xl border border-cyber-border font-mono text-[10px] text-slate-300 space-y-1">
+                                <p class="text-emerald-400 font-bold">Access API ➔ 運作正常 (開門 &lt; 50ms)</p>
+                                <p class="text-emerald-400 font-bold">Kafka Queue ➔ 無訊息堆積 (Lag = 0)</p>
+                                <p class="text-slate-400">ClickHouse ➔ 進行高效欄位壓縮儲存</p>
+                            </div>
+                        </div>
+
+                        <!-- Scenario 2: DB Offline -->
+                        <div class="bg-slate-900/40 border border-cyber-rose/30 p-5 rounded-2xl flex flex-col justify-between h-64">
+                            <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-cyber-rose font-bold font-mono"><i class="fa-solid fa-triangle-exclamation"></i> SCENARIO B: ClickHouse 故障容錯</span>
+                                    <span class="px-2 py-0.5 rounded bg-cyber-rose/10 text-cyber-rose text-[9px] font-mono border border-cyber-rose/20">斷線故障保護</span>
+                                </div>
+                                <p class="text-slate-400 leading-relaxed mb-4">
+                                    若 ClickHouse 無預警中斷（如資料庫進行維護中），Access API 依然透過記憶體 Redis 完成開門判定。<b>所有刷卡日誌皆安全暫存在 Kafka 訊息佇列中</b>，員工進出完全不受影響。
+                                </p>
+                            </div>
+                            <div class="bg-cyber-bg/80 p-3.5 rounded-xl border border-cyber-border font-mono text-[10px] text-slate-300 space-y-1">
+                                <p class="text-emerald-400 font-bold">Access API ➔ 運作正常 (員工不卡門，體驗無感)</p>
+                                <p class="text-amber-400 font-bold">Kafka Queue ➔ 持久化保存所有新事件 (Lag 增加)</p>
+                                <p class="text-cyber-rose font-bold">ClickHouse ➔ 離線維護中，恢復連線後自動補寫</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 9: Reporting & Hierarchical Permission -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 09 / Hierarchical Permissions</span>
+                        <h2 class="text-3xl font-extrabold text-white">階層式部門權限與考勤統計報表</h2>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                        <!-- Org Chart -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-6 rounded-2xl flex flex-col justify-between">
+                            <div>
+                                <h3 class="text-sm font-mono text-cyber-cyan mb-4 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-sitemap"></i> 組織層級樹狀管理權限
+                                </h3>
+                                <div class="space-y-2 text-xs font-mono">
+                                    <div class="p-2 rounded bg-slate-800/80 border border-cyber-cyan/40 text-cyber-cyan font-bold">
+                                        CEO / 高階管理員 ➔ 權限：全公司、所有廠區與部門
+                                    </div>
+                                    <div class="pl-4 border-l-2 border-slate-700 space-y-2">
+                                        <div class="p-2 rounded bg-slate-900/80 border border-cyber-blue/20 text-cyber-blue">
+                                            A 廠區廠長 ➔ 權限：A 廠區、所有子研發/製造部門
+                                        </div>
+                                        <div class="pl-4 border-l-2 border-slate-700 space-y-2">
+                                            <div class="p-1.5 rounded bg-slate-900/50 text-slate-300 text-[11px]">
+                                                Team A1 主管 ➔ 權限：Team A1 成員 (無法看 A2)
+                                            </div>
+                                            <div class="p-1.5 rounded bg-slate-900/50 text-slate-300 text-[11px]">
+                                                Team A2 主管 ➔ 權限：Team A2 成員
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-500 font-mono mt-3">
+                                💡 <b>過濾機制：</b> 呼叫 Report API 時，中介軟體根據主管 <code>manager_id</code> 遞迴拉取出所有子部門 ID，動態組裝為 SQL 在 ClickHouse 進行分組高速掃描。
+                            </p>
+                        </div>
+
+                        <!-- Report metrics -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-6 rounded-2xl flex flex-col justify-between">
+                            <div>
+                                <h3 class="text-sm font-mono text-cyber-cyan mb-3 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-list-check"></i> 主管儀表板考勤指標 (Metrics)
+                                </h3>
+                                <ul class="space-y-2.5 text-xs text-slate-300">
+                                    <li class="flex items-center gap-2">
+                                        <span class="w-1.5 h-1.5 bg-cyber-cyan rounded-full"></span>
+                                        <span><b>個人即時停留時間：</b> 依據 ENTER/EXIT 自動相減，提示異常停留。</span>
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="w-1.5 h-1.5 bg-cyber-cyan rounded-full"></span>
+                                        <span><b>出勤率與工時計算：</b> ClickHouse 能在亞秒內對百萬級事件進行聚合計算。</span>
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="w-1.5 h-1.5 bg-cyber-cyan rounded-full"></span>
+                                        <span><b>未同步事件提醒：</b> 標示出因為數據庫暫時離線所造成的延遲同步數據。</span>
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="w-1.5 h-1.5 bg-cyber-cyan rounded-full"></span>
+                                        <span><b>防跟隨異常告警：</b> 異常連續進入（觸發 Anti-passback）即時列表。</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="bg-cyber-blue/10 border border-cyber-blue/20 text-cyber-blue rounded-xl p-3 text-xs font-mono">
+                                <b>ClickHouse 強項：</b> 面對海量考勤，直接對 Raw Events 做高效率聚合查詢，無懼複雜篩選與多欄度組合分析。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 10: ClickHouse Schema -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 10 / ClickHouse Table Schema</span>
+                        <h2 class="text-3xl font-extrabold text-white">ClickHouse 資料庫建模 (OLAP)</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto text-xs font-mono">
+                        <!-- Events Log -->
+                        <div class="bg-slate-900 border border-cyber-border rounded-xl p-4">
+                            <span class="text-cyber-cyan font-bold block border-b border-cyber-border pb-1 mb-2">📊 access_events (MergeTree Engine)</span>
+                            <div class="space-y-1 text-slate-400 text-[10px]">
+                                <p><b class="text-slate-200">event_id</b> UUID</p>
+                                <p><b class="text-slate-200">event_time</b> DateTime64(3, 'Asia/Taipei')</p>
+                                <p>employee_id UInt32</p>
+                                <p>department_id UInt32</p>
+                                <p>door_id UInt32</p>
+                                <p>event_type LowCardinality(String) <span class="text-slate-500">-- 'ENTER', 'EXIT'</span></p>
+                                <p>decision LowCardinality(String) <span class="text-slate-500">-- 'PERMIT', 'DENY'</span></p>
+                                <p>sync_status UInt8</p>
+                                <p class="text-amber-400 mt-2">ENGINE = MergeTree()</p>
+                                <p class="text-amber-400">PARTITION BY toYYYYMM(event_time)</p>
+                                <p class="text-amber-400">ORDER BY (department_id, employee_id, event_time)</p>
+                            </div>
+                        </div>
+                        <!-- Daily Summary -->
+                        <div class="bg-slate-900 border border-cyber-border rounded-xl p-4">
+                            <span class="text-cyber-cyan font-bold block border-b border-cyber-border pb-1 mb-2">📈 attendance_daily_summary (SummingMergeTree)</span>
+                            <div class="space-y-1 text-slate-400 text-[10px]">
+                                <p><b class="text-slate-200">summary_date</b> Date</p>
+                                <p>employee_id UInt32</p>
+                                <p>department_id UInt32</p>
+                                <p>first_in Nullable(DateTime)</p>
+                                <p>last_out Nullable(DateTime)</p>
+                                <p>stay_hours Decimal32(2)</p>
+                                <p class="text-amber-400 mt-2">ENGINE = SummingMergeTree()</p>
+                                <p class="text-amber-400">ORDER BY (summary_date, department_id, employee_id)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/40 p-3 rounded-xl border border-cyber-border text-xs font-mono">
+                        💡 <b>ClickHouse 架構精髓：</b> 欄位式儲存不使用強外鍵關聯（FK）。表結構採取輕度冗餘設計，透過 `LowCardinality` 優化重複字串，並利用 `PARTITION BY` 進行按月物理分割，大幅收斂查詢掃描範圍。
+                    </div>
+                </div>
+
+                <!-- Slide 11: Cloud Native Deployment -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 11 / Cloud Native Deployment</span>
+                        <h2 class="text-3xl font-extrabold text-white">Kubernetes 雲原生部署拓撲</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
+                        <!-- Deployment item 1 -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-2xl">
+                            <div class="text-cyber-cyan text-xl font-bold mb-3 flex items-center gap-1.5">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Stateless Deployments
+                            </div>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                負責門禁與報表邏輯的 API 服務，均採用<b>無狀態（Stateless）</b>設計，部署於多 Pod 中。
+                            </p>
+                            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-2 py-1 rounded">
+                                k8s: access-api, report-api
+                            </span>
+                        </div>
+                        <!-- Deployment item 2 -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-2xl">
+                            <div class="text-cyber-cyan text-xl font-bold mb-3 flex items-center gap-1.5">
+                                <i class="fa-solid fa-hard-drive"></i> Stateful Components
+                            </div>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                Kafka 佇列、Redis 快取與 **ClickHouse (OLAP)** 屬於有狀態元件，利用 StatefulSet 與 PV 實作。
+                            </p>
+                            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-2 py-1 rounded">
+                                StatefulSet: ClickHouse, Kafka, Redis
+                            </span>
+                        </div>
+                        <!-- Deployment item 3 -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-2xl">
+                            <div class="text-cyber-cyan text-xl font-bold mb-3 flex items-center gap-1.5">
+                                <i class="fa-solid fa-shield-halved"></i> Security & Monitoring
+                            </div>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                專為叢集安全與可觀測性設計的系統服務，配置於特權或常駐 DaemonSet 中。
+                            </p>
+                            <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-2 py-1 rounded">
+                                Prometheus, Grafana, ingress-nginx
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 12: Scalability / HPA Demo (Stable Static Comparison Layout) -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 12 / Scalability Demo</span>
+                        <h2 class="text-3xl font-extrabold text-white">換班尖峰：Kubernetes HPA 動態擴容架構</h2>
+                    </div>
+
+                    <!-- Clean Static Presentation Cards to prevent slider crashes -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto text-xs">
+                        <!-- Off-Peak Stage -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-2xl flex flex-col justify-between h-64">
+                            <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-slate-300 font-bold font-mono"><i class="fa-solid fa-moon"></i> STAGE A: 離峰時段 (Off-Peak)</span>
+                                    <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[9px] font-mono border border-cyber-border">1 Pod Active</span>
+                                </div>
+                                <p class="text-slate-400 leading-relaxed mb-4">
+                                    此時流量極低，QPS 約維持在 10 ~ 50 左右。Kubernetes 根據 HPA 水平自動擴容規則，將 Stateless 容器維持在最省成本的 <b>1 個 Pod 副本數</b>，以節省雲端伺服器算力資源。
+                                </p>
+                            </div>
+                            <div class="bg-cyber-bg/80 p-3 rounded-xl border border-cyber-border flex items-center justify-between">
+                                <div class="flex items-center gap-2 font-mono text-[10px] text-slate-400">
+                                    <span>目前系統 CPU：</span>
+                                    <span class="text-emerald-400 font-bold">~15%</span>
+                                </div>
+                                <div class="flex space-x-1.5">
+                                    <span class="w-6 h-6 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-[10px]">P1</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Peak Spike Stage -->
+                        <div class="bg-slate-900/40 border border-cyber-cyan/30 p-5 rounded-2xl flex flex-col justify-between h-64">
+                            <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-cyber-cyan font-bold font-mono"><i class="fa-solid fa-bolt"></i> STAGE B: 交班尖峰 (Shift-Change Peak)</span>
+                                    <span class="px-2 py-0.5 rounded bg-cyber-cyan/10 text-cyber-cyan text-[9px] font-mono border border-cyber-cyan/20 animate-pulse">8 Pods Active</span>
+                                </div>
+                                <p class="text-slate-400 leading-relaxed mb-4">
+                                    交班尖峰瞬間流量飆升（QPS &gt; 1,400/s），系統 CPU 使用率觸及 70% 臨界值。HPA **秒級感應並擴充** API 服務至 **8 個無狀態 Pod 副本**，將海量刷卡流量均勻分攤。
+                                </p>
+                            </div>
+                            <div class="bg-cyber-bg/80 p-3 rounded-xl border border-cyber-border flex items-center justify-between">
+                                <div class="flex items-center gap-2 font-mono text-[10px] text-slate-300">
+                                    <span>尖峰系統 CPU：</span>
+                                    <span class="text-emerald-400 font-bold">~68% (平穩分流)</span>
+                                </div>
+                                <div class="flex space-x-1 font-mono text-[8px] text-emerald-400">
+                                    <span class="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center">P1</span>
+                                    <span class="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center">P2</span>
+                                    <span class="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center">P3</span>
+                                    <span class="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center">P4</span>
+                                    <span class="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center">P5</span>
+                                    <span class="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center">P6</span>
+                                    <span class="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center">P7</span>
+                                    <span class="w-5 h-5 rounded bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center">P8</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 13: Observability Dashboard (Grafana Simulation) -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 13 / Observability Dashboard</span>
+                        <h2 class="text-3xl font-extrabold text-white">可觀測性：Prometheus + Grafana 監控指標</h2>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 my-auto">
+                        <!-- Dashboard Panel 1 -->
+                        <div class="bg-slate-900 border border-cyber-border rounded-xl p-4 flex flex-col justify-between h-32 relative overflow-hidden">
+                            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Access API QPS</span>
+                            <div class="text-2xl font-bold font-mono text-cyber-cyan my-1">1,450 /s</div>
+                            <div class="text-[10px] text-rose-400 font-mono"><i class="fa-solid fa-arrow-trend-up"></i> 尖峰流量衝高中</div>
+                        </div>
+                        <!-- Dashboard Panel 2 -->
+                        <div class="bg-slate-900 border border-cyber-border rounded-xl p-4 flex flex-col justify-between h-32 relative overflow-hidden">
+                            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">p95 Door Decision Latency</span>
+                            <div class="text-2xl font-bold font-mono text-emerald-400 my-1">12 ms</div>
+                            <div class="text-[10px] text-emerald-400 font-mono"><i class="fa-solid fa-check-double"></i> 完美符合 &lt; 50ms 目標</div>
+                        </div>
+                        <!-- Dashboard Panel 3 -->
+                        <div class="bg-slate-900 border border-cyber-border rounded-xl p-4 flex flex-col justify-between h-32 relative overflow-hidden">
+                            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Kafka Queue Lag</span>
+                            <div class="text-2xl font-bold font-mono text-cyber-blue my-1">1,120 events</div>
+                            <div class="text-[10px] text-slate-400 font-mono"><i class="fa-solid fa-arrows-spin animate-spin"></i> Worker 消費寫入中</div>
+                        </div>
+                        <!-- Dashboard Panel 4 -->
+                        <div class="bg-slate-900 border border-cyber-border rounded-xl p-4 flex flex-col justify-between h-32 relative overflow-hidden">
+                            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">ClickHouse Write Velocity</span>
+                            <div class="text-2xl font-bold font-mono text-cyber-cyan my-1">2.4k rows/s</div>
+                            <div class="text-[10px] text-emerald-400 font-mono"><i class="fa-solid fa-bolt"></i> 列式批量寫入平穩</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-900/40 p-4 rounded-xl border border-cyber-border text-xs font-mono">
+                        💡 <b>監控核心：</b> 藉由即時追蹤 Kafka Queue Lag（排隊堆積量）與 ClickHouse 寫入吞吐，維運團隊可在發生大規模異常或設備斷網時，第一時間收到告警進行排障。
+                    </div>
+                </div>
+
+                <!-- Slide 14: Testing & Validation -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 14 / Testing & Validation</span>
+                        <h2 class="text-3xl font-extrabold text-white">分層自動化測試與四大驗證案例</h2>
+                    </div>
+
+                    <div class="overflow-x-auto flex-grow flex items-center">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-cyber-border text-cyber-cyan">
+                                    <th class="py-3 px-4 font-bold font-mono">測試案例 (Test Cases)</th>
+                                    <th class="py-3 px-4 font-bold font-mono">測試情境描述 (Scenarios)</th>
+                                    <th class="py-3 px-4 font-bold font-mono">預期通過標準 (Expectations)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-cyber-border text-slate-300">
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">Case 1: 正常進出生命週期</td>
+                                    <td class="py-2.5 px-4">OUTSIDE ➔ ENTER ➔ EXIT (一般上下班打卡)</td>
+                                    <td class="py-2.5 px-4 text-emerald-400">進出門事件順利且最終批次持久化寫入 ClickHouse</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">Case 2: 攔截防跟隨 (Anti-passback)</td>
+                                    <td class="py-2.5 px-4">OUTSIDE ➔ ENTER ➔ 再次 ENTER (未刷出再進)</td>
+                                    <td class="py-2.5 px-4 text-rose-400">第二次開門決策被拒絕 (Deny)，提示尾隨行為</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">Case 3: 資料庫極端斷開 (DB Down)</td>
+                                    <td class="py-2.5 px-4">ClickHouse 服務中止連接，進行連續門禁刷卡</td>
+                                    <td class="py-2.5 px-4 text-emerald-400">門禁照常通行 (由 Redis 快取判斷)，事件進入 Kafka 暫存</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2.5 px-4 font-bold text-white">Case 4: 階層報表主管過濾</td>
+                                    <td class="py-2.5 px-4">部門經理登入，調閱公司所有員工歷史考勤報表</td>
+                                    <td class="py-2.5 px-4 text-cyber-cyan">Report API 自動篩選，經理僅看得到自己部門的考勤紀錄</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Slide 15: Code Quality Assurance -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 15 / Code Quality Assurance</span>
+                        <h2 class="text-3xl font-extrabold text-white">代碼品質保證與自動化 CI/CD 流水線</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-auto">
+                        <div class="bg-slate-900/40 border border-cyber-border p-6 rounded-2xl flex flex-col justify-between">
+                            <div>
+                                <h3 class="text-sm font-semibold text-white mb-2">CI 流水線自動化控制 (GitHub Actions)</h3>
+                                <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                    為了維持與交付最高質量的代碼，我們建構了自動化 CI/CD 工作流。每一次變更均會自動觸發品質防禦：
+                                </p>
+                                <div class="space-y-2 text-xs font-mono">
+                                    <div class="p-2 rounded bg-slate-900 border border-cyber-cyan/20 flex justify-between items-center">
+                                        <span>Step 1: Lint & Code Style Check</span>
+                                        <span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Passed</span>
+                                    </div>
+                                    <div class="p-2 rounded bg-slate-900 border border-cyber-cyan/20 flex justify-between items-center">
+                                        <span>Step 2: Unit Testing (Coverage Target &gt; 80%)</span>
+                                        <span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Passed</span>
+                                    </div>
+                                    <div class="p-2 rounded bg-slate-900 border border-cyber-cyan/20 flex justify-between items-center">
+                                        <span>Step 3: Build & Image Vulnerability Scan</span>
+                                        <span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Passed</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Static metrics QA card (Left Blank for True Team Metrics) -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-6 rounded-2xl flex flex-col justify-between relative overflow-hidden">
+                            <div>
+                                <h3 class="text-sm font-semibold text-white mb-3">導入指標與代碼分析 (SonarQube Targets)</h3>
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div class="bg-cyber-bg p-3 rounded-lg border border-cyber-border">
+                                        <div class="text-[10px] font-mono text-slate-500 uppercase">Unit Test Coverage</div>
+                                        <div class="text-xl font-bold text-slate-400 font-mono">-[待測]-</div>
+                                    </div>
+                                    <div class="bg-cyber-bg p-3 rounded-lg border border-cyber-border">
+                                        <div class="text-[10px] font-mono text-slate-500 uppercase">SonarQube Rating</div>
+                                        <div class="text-xl font-bold text-slate-400 font-mono">-[待測]-</div>
+                                    </div>
+                                    <div class="bg-cyber-bg p-3 rounded-lg border border-cyber-border">
+                                        <div class="text-[10px] font-mono text-slate-500 uppercase">Bugs & Vulnerabilities</div>
+                                        <div class="text-xl font-bold text-slate-400 font-mono">-[待測]-</div>
+                                    </div>
+                                    <div class="bg-cyber-bg p-3 rounded-lg border border-cyber-border">
+                                        <div class="text-[10px] font-mono text-slate-500 uppercase">Code Duplication</div>
+                                        <div class="text-xl font-bold text-slate-400 font-mono">-[待測]-</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border border-dashed border-cyber-border rounded-lg p-3 bg-slate-950/20 text-center text-[10px] text-slate-500 font-mono">
+                                📷 [請於此處貼上小組實際跑測之 SonarQube 分析與 Coverage 截圖]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 16: Demo Flow -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 16 / Live Demo Script</span>
+                        <h2 class="text-3xl font-extrabold text-white">簡報現場 Demo 劇本設計</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto text-xs">
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl">
+                            <span class="text-cyber-cyan font-mono font-bold block mb-2">STAGE 1: 正常與重複防跟隨</span>
+                            <ol class="list-decimal pl-4 space-y-2 text-slate-300">
+                                <li>模擬正常員工刷卡進門，畫面呈現 <b>綠色 Open</b> 決策。</li>
+                                <li>緊接著讓該名員工<b>在未出門狀態下再次刷進</b>，系統瞬間識別出 Anti-passback 並攔截呈現 <b>紅色 Denied</b>。</li>
+                            </ol>
+                        </div>
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl">
+                            <span class="text-cyber-cyan font-mono font-bold block mb-2">STAGE 2: 極端維護與自我修復</span>
+                            <ol class="list-decimal pl-4 space-y-2 text-slate-300">
+                                <li><b>手動中斷 ClickHouse 資料表連線</b>（模擬斷線）。</li>
+                                <li>再次刷卡：系統依然在 10ms 內開門！</li>
+                                <li>展示 Kafka 內緩衝事件不斷累積。</li>
+                                <li><b>重新連線 ClickHouse</b>，展示 Worker 自動快速批次補寫。</li>
+                            </ol>
+                        </div>
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl">
+                            <span class="text-cyber-cyan font-mono font-bold block mb-2">STAGE 3: 報表與擴充</span>
+                            <ol class="list-decimal pl-4 space-y-2 text-slate-300">
+                                <li>主管登入系統，調閱出勤日誌，查看<b> ClickHouse 海量分析考勤報表</b>的秒出速度。</li>
+                                <li>透過壓力測試工具模擬高峰換班，Grafana 顯示 QPS 飆升與 <b>K8s Pods 擴容 (HPA) 的震撼動態</b>。</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 17: Challenges & Trade-offs -->
+                <div class="slide hidden flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-cyber-cyan pl-4">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 17 / Engineering Trade-offs</span>
+                        <h2 class="text-3xl font-extrabold text-white">面臨挑戰與工程權衡 (Trade-offs)</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto text-xs">
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl flex flex-col justify-between h-56">
+                            <div>
+                                <span class="text-cyber-cyan font-mono font-bold block mb-2">1. Latency vs Consistency</span>
+                                <p class="text-slate-400 leading-relaxed">
+                                    我們優先保證<b>極低延遲的開門決策（⚡ Fast Path）</b>。因此捨棄了寫入 DB 的強一致性，採用 Redis + Kafka 進行最終一致性，極大提升了高峰期員工卡打卡體驗。
+                                </p>
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-mono">🔍 權衡結果：極致體驗 ➔ 最終一致性。</span>
+                        </div>
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl flex flex-col justify-between h-56">
+                            <div>
+                                <span class="text-cyber-cyan font-mono font-bold block mb-2">2. OLAP Analysis vs Row Persistence</span>
+                                <p class="text-slate-400 leading-relaxed">
+                                    由於考勤資料每日高達數百萬筆，傳統 RDBMS 在大表關聯查詢容易癱瘓。我們引入 **ClickHouse** 作為列式存儲，將大表多維聚合查詢加速至「亞秒級」，以此支撐主管層級報表。
+                                </p>
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-mono">🔍 權衡結果：列式分析資料庫 ➔ 高效查詢。</span>
+                        </div>
+                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl flex flex-col justify-between h-56">
+                            <div>
+                                <span class="text-cyber-cyan font-mono font-bold block mb-2">3. Simplicity vs High Scalability</span>
+                                <p class="text-slate-400 leading-relaxed">
+                                    雖然單體架構在初期開發極其簡單，但考量到 90K 員工規模，我們仍不辭繁複地拆分出 Access API、Kafka 佇列、以及 Redis Cache 分層架構，大幅增強了未來的橫向彈性與水平擴容。
+                                </p>
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-mono">🔍 權衡結果：捨棄簡易性 ➔ 換取超高擴展。</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 18: Conclusion -->
+                <div class="slide hidden flex flex-col justify-between h-full text-center">
+                    <div class="border-l-4 border-cyber-cyan pl-4 text-left">
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 18 / Summary & Conclusion</span>
+                    </div>
+
+                    <div class="my-auto max-w-3xl mx-auto space-y-6">
+                        <h2 class="text-4xl font-extrabold text-white">實踐雲原生：以架構賦能業務</h2>
+                        <p class="text-slate-300 leading-relaxed text-sm">
+                            本系統透過事件驅動（Event-Driven）架構成功將門禁判定與複雜報表分析完美解耦。
+                            <b>⚡ Fast Path</b> 運用 Redis 高效運算和 Kafka 異步緩衝，全面滿足毫秒級通行體驗，即使在資料庫故障期間也能無縫運轉。
+                            <b>🐢 Slow Path</b> 則結合 <b>ClickHouse</b> 為主管呈現高精度且極速的層級出勤報表。
+                        </p>
+                        <p class="text-slate-300 leading-relaxed text-sm">
+                            結合 Kubernetes HPA 水平擴展機制以及全方位的監控面板，系統具備極佳的自動化彈性，隨時準備應對高峰與尖峰流量的嚴酷挑戰。
+                        </p>
+                    </div>
+
+                    <div class="text-xs font-mono text-slate-500">
+                        <p>Cloud Native Architecture Course Project · Group 9 Report Completed</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer Controls -->
+            <footer class="mt-8 pt-4 border-t border-cyber-border flex justify-between items-center z-10">
+                <div class="flex space-x-2">
+                    <button onclick="prevSlide()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-cyber-border rounded-xl text-xs font-mono text-slate-300 transition flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-chevron-left"></i> PREV
+                    </button>
+                    <button onclick="nextSlide()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-cyber-border rounded-xl text-xs font-mono text-slate-300 transition flex items-center gap-1.5 shadow-md">
+                        NEXT <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <!-- Quick Navigation Dots -->
+                <div class="hidden md:flex space-x-1.5" id="slide-dots-container">
+                    <!-- Dots injected dynamically -->
+                </div>
+
+                <div class="text-[11px] font-mono text-slate-500 flex items-center gap-1">
+                    <span class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px]">← / → / Space</span> 鍵可控制投影片
+                </div>
+            </footer>
+
+        </div>
+    </main>
+
+    <!-- Slide Minimap / Drawer for fast switching -->
+    <div class="border-t border-cyber-border bg-cyber-bg/40 backdrop-blur-md py-3 px-8 flex justify-center items-center">
+        <div class="flex items-center space-x-2 overflow-x-auto py-1 max-w-full" id="slide-minimap-container">
+            <!-- Minimap items injected dynamically -->
+        </div>
+    </div>
+
+    <!-- Script for presentations switching, animation and simulation -->
+    <script>
+        const totalSlides = 18;
+        let currentSlide = 1;
+        const slides = document.querySelectorAll('.slide');
+
+        // Titles of slides for minimap tooltips
+        const slideTitles = [
+            "Title", "Problem Statement", "Persona & Pain Points", "Requirements Mapping",
+            "High-Level Architecture", "Sequence Diagram", "Anti-Passback Design",
+            "Event Resilience Buffer", "Hierarchical Permissions", "ClickHouse Schema",
+            "Kubernetes Deployment", "HPA Scaling Demo", "Observability Dash", "Testing Matrix",
+            "Code Quality", "Live Demo Script", "Engineering Trade-offs", "Conclusion"
+        ];
+
+        function initSlides() {
+            // Setup slides-counter
+            document.getElementById('total-slides-num').innerText = totalSlides;
+            
+            // Build Quick Navigation Dots
+            const dotsContainer = document.getElementById('slide-dots-container');
+            dotsContainer.innerHTML = '';
+            
+            // Build Minimap
+            const minimapContainer = document.getElementById('slide-minimap-container');
+            minimapContainer.innerHTML = '';
+
+            for (let i = 1; i <= totalSlides; i++) {
+                // Build dots
+                const dot = document.createElement('button');
+                dot.className = `w-2 h-2 rounded-full transition-all duration-300 ${i === 1 ? 'bg-cyber-cyan w-4' : 'bg-slate-700 hover:bg-slate-500'}`;
+                dot.onclick = () => goToSlide(i);
+                dot.id = `slide-dot-${i}`;
+                dotsContainer.appendChild(dot);
+
+                // Build Minimap Item
+                const mapItem = document.createElement('button');
+                mapItem.className = `flex-shrink-0 px-3 py-1 text-[10px] font-mono rounded border transition-all ${
+                    i === 1 ? 'bg-cyber-cyan/10 border-cyber-cyan text-cyber-cyan' : 'bg-slate-900 border-cyber-border hover:border-slate-600 text-slate-400'
+                }`;
+                mapItem.innerHTML = `<span class="opacity-60 mr-1">${String(i).padStart(2, '0')}.</span> ${slideTitles[i-1]}`;
+                mapItem.onclick = () => goToSlide(i);
+                mapItem.id = `minimap-item-${i}`;
+                minimapContainer.appendChild(mapItem);
+            }
+
+            goToSlide(1);
+        }
+
+        function updateUI() {
+            // Set slide visibility
+            slides.forEach((slide, index) => {
+                if (index + 1 === currentSlide) {
+                    slide.classList.remove('hidden');
+                    slide.classList.remove('slide-exit');
+                    slide.classList.add('slide-active');
+                } else {
+                    if (!slide.classList.contains('hidden')) {
+                        slide.classList.add('slide-exit');
+                        setTimeout(() => {
+                            if (index + 1 !== currentSlide) {
+                                slide.classList.add('hidden');
+                            }
+                        }, 250);
+                    }
+                }
+            });
+
+            // Update Page counter
+            document.getElementById('current-slide-num').innerText = currentSlide;
+
+            // Update Navigation dots active states
+            for (let i = 1; i <= totalSlides; i++) {
+                const dot = document.getElementById(`slide-dot-${i}`);
+                if (dot) {
+                    if (i === currentSlide) {
+                        dot.className = "w-2 h-2 rounded-full transition-all duration-300 bg-cyber-cyan w-4";
+                    } else {
+                        dot.className = "w-2 h-2 rounded-full transition-all duration-300 bg-slate-700 hover:bg-slate-500";
+                    }
+                }
+
+                // Update minimap border highlighted states
+                const mapItem = document.getElementById(`minimap-item-${i}`);
+                if (mapItem) {
+                    if (i === currentSlide) {
+                        mapItem.className = "flex-shrink-0 px-3 py-1 text-[10px] font-mono rounded border transition-all bg-cyber-cyan/10 border-cyber-cyan text-cyber-cyan";
+                        // Scroll minimap container to center the active item nicely
+                        mapItem.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    } else {
+                        mapItem.className = "flex-shrink-0 px-3 py-1 text-[10px] font-mono rounded border transition-all bg-slate-900 border-cyber-border hover:border-slate-600 text-slate-400";
+                    }
+                }
+            }
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                currentSlide++;
+                updateUI();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                currentSlide--;
+                updateUI();
+            }
+        }
+
+        function goToSlide(num) {
+            currentSlide = num;
+            updateUI();
+        }
+
+        // Keyboard navigation setup
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                prevSlide();
+            }
+        });
+
+        // Window Onload handler
+        window.onload = function() {
+            initSlides();
+        }
+    </script>
+</body>
+</html>
