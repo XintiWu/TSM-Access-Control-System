@@ -287,7 +287,7 @@
                                 <path d="M 720,100 V 60 H 830" stroke="#3b82f6" stroke-width="2" fill="none"/>
                             </svg>
 
-                            <!-- Clients (Badge / Admin) -->
+                            <!-- Clients (Badge / Admin / API) -->
                             <div class="flex flex-col space-y-8 z-10">
                                 <div class="bg-slate-800 border border-cyber-cyan/50 text-slate-200 px-3 py-1.5 rounded-lg text-center text-[10px] font-mono shadow-md w-24">
                                     <i class="fa-solid fa-id-card text-cyber-cyan text-base mb-1 block"></i>
@@ -651,7 +651,7 @@ employee:{id}:last_time ➔ "1716611822"
                                 負責門禁與報表邏輯的 API 服務，均採用<b>無狀態（Stateless）</b>設計，部署於多 Pod 中。
                             </p>
                             <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-2 py-1 rounded">
-                                k8s: access-api, report-api
+                                k8s: access-api, admin-api, report-api
                             </span>
                         </div>
                         <!-- Deployment item 2 -->
@@ -885,36 +885,74 @@ employee:{id}:last_time ➔ "1716611822"
                     </div>
                 </div>
 
-                <!-- Slide 16: Demo Flow -->
+                <!-- Slide 16: Demo Flow (Aligned with 615468324880384448_DEMO.md) -->
                 <div class="slide hidden flex flex-col justify-between h-full">
                     <div class="border-l-4 border-cyber-cyan pl-4">
-                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 16 / Live Demo Script</span>
-                        <h2 class="text-3xl font-extrabold text-white">簡報現場 Demo 劇本設計</h2>
+                        <span class="text-xs font-mono text-cyber-cyan block tracking-widest uppercase">Slide 16 / Live Demo Workflow</span>
+                        <h2 class="text-3xl font-extrabold text-white">現場系統 Demo 流程與驗證劇本</h2>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto text-xs">
-                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl">
-                            <span class="text-cyber-cyan font-mono font-bold block mb-2">STAGE 1: 正常與重複防跟隨</span>
-                            <ol class="list-decimal pl-4 space-y-2 text-slate-300">
-                                <li>模擬正常員工刷卡進門，畫面呈現 <b>綠色 Open</b> 決策。</li>
-                                <li>緊接著讓該名員工<b>在未出門狀態下再次刷進</b>，系統瞬間識別出 Anti-passback 並攔截呈現 <b>紅色 Denied</b>。</li>
-                            </ol>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 my-auto text-[11px] font-sans">
+                        <!-- Step 1 -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-4 rounded-xl flex flex-col justify-between h-56">
+                            <div>
+                                <span class="text-cyber-cyan font-mono font-bold block mb-1">STEP 1: 基礎流程與反潛回</span>
+                                <p class="text-slate-400 leading-relaxed">
+                                    透過 <code>make verify-pipeline</code> 模擬刷卡。
+                                </p>
+                                <ul class="list-disc pl-4 mt-2 text-slate-400 space-y-1">
+                                    <li>正常刷卡：卡號 <code>9999</code>，回傳 ALLOW。</li>
+                                    <li><b>反潛回 (Anti-Passback)</b>：連續刷卡，第二次回傳 DENY。</li>
+                                </ul>
+                            </div>
+                            <span class="text-[9px] text-slate-500 font-mono">命令：curl access-api:8080/inout</span>
                         </div>
-                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl">
-                            <span class="text-cyber-cyan font-mono font-bold block mb-2">STAGE 2: 極端維護與自我修復</span>
-                            <ol class="list-decimal pl-4 space-y-2 text-slate-300">
-                                <li><b>手動中斷 ClickHouse 資料表連線</b>（模擬斷線）。</li>
-                                <li>再次刷卡：系統依然在 10ms 內開門！</li>
-                                <li>展示 Kafka 內緩衝事件不斷累積。</li>
-                                <li><b>重新連線 ClickHouse</b>，展示 Worker 自動快速批次補寫。</li>
-                            </ol>
+                        
+                        <!-- Step 2 -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-4 rounded-xl flex flex-col justify-between h-56">
+                            <div>
+                                <span class="text-cyber-cyan font-mono font-bold block mb-1">STEP 2: 封禁快取失效 (Cache)</span>
+                                <p class="text-slate-400 leading-relaxed">
+                                    驗證 Admin 封禁與 Redis 同步更新。
+                                </p>
+                                <ul class="list-disc pl-4 mt-2 text-slate-400 space-y-1">
+                                    <li>呼叫 admin-api <b>Banned 員工</b>。</li>
+                                    <li>透過 Cache Invalidation 異步清除 Redis 狀態。</li>
+                                    <li>再次刷卡，秒級反應回傳 DENY。</li>
+                                </ul>
+                            </div>
+                            <span class="text-[9px] text-slate-500 font-mono">命令：curl admin-api:8081/ban</span>
                         </div>
-                        <div class="bg-slate-900/40 border border-cyber-border p-5 rounded-xl">
-                            <span class="text-cyber-cyan font-mono font-bold block mb-2">STAGE 3: 報表與擴充</span>
-                            <ol class="list-decimal pl-4 space-y-2 text-slate-300">
-                                <li>主管登入系統，調閱出勤日誌，查看<b> ClickHouse 海量分析考勤報表</b>的秒出速度。</li>
-                                <li>透過壓力測試工具模擬高峰換班，Grafana 顯示 QPS 飆升與 <b>K8s Pods 擴容 (HPA) 的震撼動態</b>。</li>
-                            </ol>
+
+                        <!-- Step 3 -->
+                        <div class="bg-slate-900/40 border border-cyber-border p-4 rounded-xl flex flex-col justify-between h-56">
+                            <div>
+                                <span class="text-cyber-cyan font-mono font-bold block mb-1">STEP 3: 斷線容錯與異步同步</span>
+                                <p class="text-slate-400 leading-relaxed">
+                                    ClickHouse 離線高可用容錯。
+                                </p>
+                                <ul class="list-disc pl-4 mt-2 text-slate-400 space-y-1">
+                                    <li><b>暫停 worker 容器</b> 模擬斷網。</li>
+                                    <li>繼續刷卡：照常回傳 ALLOW（Redis 決策）。</li>
+                                    <li>重啟 worker，事件從 Kafka 補入 ClickHouse。</li>
+                                </ul>
+                            </div>
+                            <span class="text-[9px] text-slate-500 font-mono">命令：docker stop aggregation-worker</span>
+                        </div>
+
+                        <!-- Step 4 -->
+                        <div class="bg-slate-900/40 border border-cyber-cyan/30 p-4 rounded-xl flex flex-col justify-between h-56">
+                            <div>
+                                <span class="text-cyber-cyan font-mono font-bold block mb-1">STEP 4: 報表聚合與可觀測性</span>
+                                <p class="text-slate-400 leading-relaxed">
+                                    多維分析與指標觀測。
+                                </p>
+                                <ul class="list-disc pl-4 mt-2 text-slate-400 space-y-1">
+                                    <li>進入 report-api，查看 <b>ClickHouse 預聚合視圖</b> 秒出考勤報表。</li>
+                                    <li>開啟 Grafana 看 QPS、Kafka Lag 與 ClickHouse 效能指標。</li>
+                                </ul>
+                            </div>
+                            <span class="text-[9px] text-slate-500 font-mono">URL：localhost:8082/reports</span>
                         </div>
                     </div>
                 </div>
