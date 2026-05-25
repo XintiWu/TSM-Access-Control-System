@@ -582,7 +582,7 @@
                                 </div>
 
                                 <!-- Actions & Decisions Grid -->
-                                <div class="grid grid-cols-2 gap-3">
+                                <div class="flex flex-col gap-3">
                                     <!-- Outside Actions -->
                                     <div class="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm space-y-2">
                                         <div class="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded w-max">當前狀態: OUTSIDE</div>
@@ -1001,7 +1001,7 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">代碼品質保證與自動化 CI/CD 流水線</h2>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-auto text-sm">
+                    <div class="max-w-3xl mx-auto w-full my-auto text-sm">
                         <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col justify-between shadow-sm">
                             <div>
                                 <h3 class="text-base font-bold text-brand-navy mb-3">CI 流水線自動化控制 (GitHub Actions)</h3>
@@ -1022,34 +1022,6 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                                         <span class="text-brand-emerald"><i class="fa-solid fa-circle-check"></i> Passed</span>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Static metrics QA card -->
-                        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col justify-between relative overflow-hidden shadow-sm">
-                            <div>
-                                <h3 class="text-base font-bold text-brand-navy mb-4">導入指標與代碼分析 (SonarQube Targets)</h3>
-                                <div class="grid grid-cols-2 gap-4 mb-4 font-mono text-center">
-                                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-                                        <div class="text-[10px] text-slate-400 font-bold uppercase">Unit Test Coverage</div>
-                                        <div class="text-lg font-bold text-slate-500 mt-1">-[待測]-</div>
-                                    </div>
-                                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-                                        <div class="text-[10px] text-slate-400 font-bold uppercase">SonarQube Rating</div>
-                                        <div class="text-lg font-bold text-slate-500 mt-1">-[待測]-</div>
-                                    </div>
-                                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-                                        <div class="text-[10px] text-slate-400 font-bold uppercase">Bugs & Security</div>
-                                        <div class="text-lg font-bold text-slate-500 mt-1">-[待測]-</div>
-                                    </div>
-                                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-                                        <div class="text-[10px] text-slate-400 font-bold uppercase">Code Duplication</div>
-                                        <div class="text-lg font-bold text-slate-500 mt-1">-[待測]-</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="border border-dashed border-slate-300 rounded-xl p-4 bg-white/50 text-center text-xs text-slate-400 font-medium">
-                                [請於此處貼上小組實際跑測之 SonarQube 分析與 Coverage 截圖]
                             </div>
                         </div>
                     </div>
