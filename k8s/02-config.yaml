@@ -13,7 +13,6 @@ data:
   KAFKA_GROUP_AGGREGATION: "aggregation-workers"
   KAFKA_GROUP_CACHE: "cache-invalidation-workers"
   CLICKHOUSE_USER: "default"
-  # 請替換為您的 GCP 服務實際 IP
   KAFKA_BROKERS: "kafka:9092"
   REDIS_ADDR: "10.140.0.3:6379"
   CLICKHOUSE_ADDR: "jm9s3w1q3z.asia-southeast1.gcp.clickhouse.cloud:9440"

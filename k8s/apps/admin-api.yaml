@@ -48,6 +48,21 @@ spec:
             configMapKeyRef:
               name: app-config
               key: KAFKA_TOPIC_PERMISSION
+        - name: CLICKHOUSE_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CLICKHOUSE_ADDR
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: CLICKHOUSE_PASSWORD
 ---
 apiVersion: v1
 kind: Service
