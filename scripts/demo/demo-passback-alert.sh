@@ -20,7 +20,11 @@ USER="${USER:-22222222-2222-2222-2222-222222222222}"
 DOOR="${DOOR:-11111111-1111-1111-1111-111111111111}"
 
 redis_cmd() {
-  docker compose exec -T redis redis-cli "$@" 2>/dev/null
+  if command -v redis-cli >/dev/null 2>&1; then
+    redis-cli -h "${REDIS_HOST:-localhost}" -p "${REDIS_PORT:-6379}" "$@" 2>/dev/null
+  else
+    docker compose exec -T redis redis-cli "$@" 2>/dev/null
+  fi
 }
 
 echo ">>> Clearing passback state for ${USER}"

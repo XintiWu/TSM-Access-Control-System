@@ -41,7 +41,11 @@ PAIRS_PER_USER="${PAIRS_PER_USER:-40}"   # 每人 IN+OUT 各 40 次 ≈ 320 ALLO
 INTERVAL="${INTERVAL:-15ms}"
 
 redis_del_passback() {
-  docker compose exec -T redis redis-cli DEL "passback:$1" >/dev/null 2>&1 || true
+  if command -v redis-cli >/dev/null 2>&1; then
+    redis-cli -h "${REDIS_HOST:-localhost}" -p "${REDIS_PORT:-6379}" DEL "passback:$1" >/dev/null 2>&1 || true
+  else
+    docker compose exec -T redis redis-cli DEL "passback:$1" >/dev/null 2>&1 || true
+  fi
 }
 
 swipe() {

@@ -17,7 +17,11 @@ fi
 
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 ACCESS_URL="${ACCESS_URL:-http://localhost:8080}"
-REDIS="${REDIS:-docker compose exec -T redis redis-cli}"
+if command -v redis-cli >/dev/null 2>&1; then
+  REDIS="redis-cli -h ${REDIS_HOST:-localhost} -p ${REDIS_PORT:-6379}"
+else
+  REDIS="docker compose exec -T redis redis-cli"
+fi
 MANAGER="${MANAGER:-cccccccc-cccc-cccc-cccc-cccccccccccc}"
 ORG="${ORG:-a0000000-0000-0000-0000-000000000003}"
 USER_SWIPE="${USER_SWIPE:-22222222-2222-2222-2222-222222222222}"
