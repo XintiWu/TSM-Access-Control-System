@@ -24,6 +24,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO_DIR="${SCRIPT_DIR}/demo"
 UTILS_DIR="${SCRIPT_DIR}/utils"
 
+# Load environment variables if present
+ENV_FILE="${SCRIPT_DIR}/../.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Derive REDIS_HOST and REDIS_PORT from REDIS_ADDR if set
+if [ -n "${REDIS_ADDR:-}" ]; then
+  REDIS_HOST="${REDIS_ADDR%:*}"
+  REDIS_PORT="${REDIS_ADDR#*:}"
+fi
+
 # Print banner
 print_banner() {
   echo -e "${COLOR_CYAN}${COLOR_BOLD}======================================================================${COLOR_NC}"

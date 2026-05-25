@@ -4,6 +4,19 @@
 # report-api (Slow Path) must have p95 latency < 200ms.
 set -euo pipefail
 
+# Load environment variables if present
+ENV_FILE="$(dirname "$0")/../../.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Derive REDIS_HOST and REDIS_PORT from REDIS_ADDR if set
+if [ -n "${REDIS_ADDR:-}" ]; then
+  REDIS_HOST="${REDIS_ADDR%:*}"
+  REDIS_PORT="${REDIS_ADDR#*:}"
+fi
+
+
 API_URL="${API_URL:-http://localhost:8080}"
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 MANAGER="cccccccc-cccc-cccc-cccc-cccccccccccc"
@@ -19,7 +32,7 @@ echo
 echo "Testing Fast Path (access-api /access/swipe)..."
 # Clear passback state first to avoid anti-passback rule lookup penalties
 if command -v redis-cli >/dev/null 2>&1; then
-  redis-cli FLUSHDB >/dev/null 2>&1 || true
+  redis-cli -h "${REDIS_HOST:-localhost}" -p "${REDIS_PORT:-6379}" FLUSHDB >/dev/null 2>&1 || true
 else
   docker compose exec -T redis redis-cli FLUSHDB >/dev/null 2>&1 || true
 fi
