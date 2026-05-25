@@ -31,6 +31,8 @@
 1. [API Design](#7-api-design)
 1. [Non-Functional Requirements Implementation](#8-non-functional-requirements-implementation)
 1. [Infrastructure & Deployment](#9-infrastructure--deployment)
+   - 9.1 [High-Level Deployment Diagram](#91-high-level-deployment-diagram)
+   - 9.2 [GCP (Google Cloud Platform) Deployment Guide (Integrated with GCP Secret Manager)](#92-gcp-google-cloud-platform-deployment-guide-integrated-with-gcp-secret-manager)
 
 -----
 
@@ -500,6 +502,8 @@ Key metrics to monitor, especially during **Shift Change** (peak period):
 
 ## 9. Infrastructure & Deployment
 
+### 9.1 High-Level Deployment Diagram
+
 ```mermaid
 graph TB
     subgraph Kubernetes Cluster
@@ -545,6 +549,101 @@ graph TB
 - Redis is used for two separate concerns (permission/passback cache AND report cache) — can be the same cluster with separate key namespaces
 - Message Queue (Kafka recommended) provides durability via log-based storage, ensuring no events are lost even during consumer downtime
 - ClickHouse can be sharded by `org_unit_id` or by time range for large-scale deployments, as noted in meeting notes
+
+-----
+
+### 9.2 GCP (Google Cloud Platform) Deployment Guide (Integrated with GCP Secret Manager)
+
+This section provides a step-by-step deployment guide for GKE (Google Kubernetes Engine) integrated with GCP Secret Manager and Workload Identity.
+
+#### 9.2.1 GCP Cloud Services Architecture Mapping
+
+| Component | GCP Service | Description |
+| :--- | :--- | :--- |
+| **Kubernetes Cluster** | **GKE (Google Kubernetes Engine)** | Managed Kubernetes with Workload Identity enabled to securely access GCP resources. |
+| **Secrets Management** | **GCP Secret Manager** | Encrypted storage of database DSNs and passwords, keeping secrets out of git repositories. |
+| **Cache & Database** | **Memorystore & Cloud SQL** | Interacts securely with GKE via internal VPC network. |
+| **Docker Registry** | **Artifact Registry** | Stores container images for all microservices. |
+
+#### 9.2.2 Setup Steps
+
+##### Phase 1: Set Up Secrets in GCP Secret Manager
+
+1. Create the following secrets in **GCP Secret Manager**:
+   - `DB_DSN`: e.g., `access:access@tcp(<CLOUD_SQL_IP>:3306)/access_control?parseTime=true`
+   - `CLICKHOUSE_PASSWORD`: Your ClickHouse database password.
+
+##### Phase 2: Configure GKE Workload Identity
+
+Workload Identity is the recommended security practice for GKE, linking a Kubernetes ServiceAccount (KSA) to a GCP IAM Service Account (GSA) without the need for manual Service Account Key JSON files.
+
+1. **Create an IAM Service Account (GSA) in GCP**:
+   ```bash
+   gcloud iam service-accounts create secret-accessor --project=<YOUR_PROJECT_ID>
+   ```
+2. **Grant Secret Accessor role to the GSA**:
+   ```bash
+   gcloud projects add-iam-policy-binding <YOUR_PROJECT_ID> \
+       --member="serviceAccount:secret-accessor@<YOUR_PROJECT_ID>.iam.gserviceaccount.com" \
+       --role="roles/secretmanager.secretAccessor"
+   ```
+3. **Allow the GKE KSA to impersonate the GSA**:
+   ```bash
+   gcloud iam service-accounts add-iam-policy-binding \
+       secret-accessor@<YOUR_PROJECT_ID>.iam.gserviceaccount.com \
+       --project=<YOUR_PROJECT_ID> \
+       --role="roles/iam.workloadIdentityUser" \
+       --member="serviceAccount:<YOUR_PROJECT_ID>.svc.id.goog[access-control/secret-reader-sa]"
+   ```
+
+##### Phase 3: Install & Configure External Secrets Operator (ESO) in GKE
+
+The External Secrets Operator synchronizes secrets from GCP Secret Manager directly into native Kubernetes Secrets.
+
+1. **Install ESO via Helm**:
+   ```bash
+   helm repo add external-secrets https://charts.external-secrets.io
+   helm install external-secrets external-secrets/external-secrets \
+     -n external-secrets --create-namespace
+   ```
+2. **Deploy the Secret Store & ExternalSecret**:
+   - Edit [secret-store.yaml](file:///Users/jakehu/Desktop/distributed-physical-access-control-system/k8s/secrets/secret-store.yaml) to replace `<GCP_PROJECT_ID>` with your project ID.
+   - Apply the configurations:
+     ```bash
+     kubectl apply -f k8s/secrets/secret-store.yaml
+     kubectl apply -f k8s/secrets/external-secret.yaml
+     ```
+   *The External Secrets Operator in GKE will now authenticate via Workload Identity to fetch secrets from GCP Secret Manager and automatically create a native Kubernetes Secret named `app-secrets`.*
+
+##### Phase 4: Deploy Applications
+
+1. **Build and push images to Artifact Registry**:
+   ```bash
+   docker build -t asia-east1-docker.pkg.dev/<YOUR_PROJECT_ID>/access-control-repo/access-api:v1 ./access-api
+   docker push asia-east1-docker.pkg.dev/<YOUR_PROJECT_ID>/access-control-repo/access-api:v1
+   ```
+2. **Update the container image path** in the microservice deployment YAMLs (e.g., `k8s/apps/access-api.yaml`).
+3. **Deploy everything**:
+   ```bash
+   # Deploy namespace and configurations
+   kubectl apply -f k8s/01-namespace.yaml
+   kubectl apply -f k8s/02-config.yaml
+   
+   # Deploy microservices (which mount `app-secrets` created by ESO)
+   kubectl apply -f k8s/apps/
+   ```
+
+##### Phase 5: Ingress & Automatic HTTPS
+
+Configure Nginx Ingress Controller with `cert-manager` for automatic SSL/TLS certificate issuing:
+```bash
+# Install cert-manager
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+
+# Deploy ClusterIssuer and Ingress
+kubectl apply -f k8s/ingress/cert-manager-issuer.yaml
+kubectl apply -f k8s/ingress/api-ingress.yaml
+```
 
 -----
 
