@@ -118,7 +118,7 @@
                 Fast Path vs Slow Path (ClickHouse OLAP)
             </span>
             <div class="text-xs text-brand-textSecondary font-semibold">
-                <span id="current-slide-num">1</span> / <span id="total-slides-num">18</span>
+                <span id="current-slide-num">1</span> / <span id="total-slides-num">29</span>
             </div>
         </div>
     </header>
@@ -135,10 +135,10 @@
             <div id="presentation-scaler" class="w-full h-full flex flex-col justify-between relative overflow-hidden">
                 <!-- Slide Contents Container -->
                 <div id="slides-container" class="relative flex-grow overflow-hidden h-full">
-                <div id="slides-track" class="flex flex-row h-full transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]" style="width: 1800%;">
+                <div id="slides-track" class="flex flex-row h-full transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]" style="width: 2900%;">
                 
                 <!-- Slide 1: Title -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-center items-center text-center h-full">
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-center items-center text-center h-full">
                     <span class="px-4 py-1.5 rounded-full bg-brand-indigo/10 text-brand-indigo border border-brand-indigo/20 text-xs font-bold uppercase tracking-widest mb-6">
                         Course Project Presentation
                     </span>
@@ -161,7 +161,7 @@
                 </div>
 
                 <!-- Slide 2: Problem Statement -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
                         <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 02 / Problem Statement</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">為什麼這個系統極具挑戰？</h2>
@@ -196,7 +196,7 @@
                 </div>
 
                 <!-- Slide 3: User Stories / Design Thinking -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
                         <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 03 / User Persona & Design Thinking</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">使用者痛點與設計推導</h2>
@@ -239,10 +239,76 @@
                     </div>
                 </div>
 
-                <!-- Slide 4: Requirements Mapping -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+
+                <!-- Slide 4: Design Decision Overview -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 04 / Design Decision Overview</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">從使用者矛盾推導架構決策</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 my-auto items-stretch">
+                        <!-- Employee Need -->
+                        <div class="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-5 text-7xl text-brand-indigo/10"><i class="fa-solid fa-door-open"></i></div>
+                            <span class="px-2.5 py-1 rounded bg-brand-indigo/10 text-brand-indigo border border-brand-indigo/20 text-[10px] font-bold tracking-wider uppercase">Employee Side</span>
+                            <h3 class="text-lg font-extrabold text-brand-navy mt-3 mb-3">門禁決策不能等</h3>
+                            <p class="text-sm text-brand-textSecondary leading-relaxed mb-4">
+                                上班尖峰時段，員工只在意刷卡後能不能立即進門；任何 DB 查詢、報表計算或寫入延遲，都會直接變成排隊與遲到風險。
+                            </p>
+                            <div class="bg-white/80 border border-indigo-100 rounded-xl p-3 text-xs text-brand-indigo font-bold leading-relaxed">
+                                Design Goal：Latency First<br>
+                                <span class="text-slate-500 font-medium">Access decision must be isolated.</span>
+                            </div>
+                        </div>
+
+                        <!-- Architecture Conflict -->
+                        <div class="bg-slate-50 border border-slate-200/70 rounded-2xl p-5 shadow-sm flex flex-col justify-center text-center relative overflow-hidden">
+                            <div class="mx-auto w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm mb-4">
+                                <i class="fa-solid fa-code-branch text-brand-navy text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-extrabold text-brand-navy mb-3">一套系統，兩種相反負載</h3>
+                            <div class="space-y-3 text-sm text-brand-textSecondary leading-relaxed">
+                                <div class="bg-white border border-slate-200 rounded-xl p-3 text-left">
+                                    <b class="text-brand-indigo">Fast Path：</b> write-heavy、latency-sensitive、只做開門判斷。
+                                </div>
+                                <div class="bg-white border border-slate-200 rounded-xl p-3 text-left">
+                                    <b class="text-brand-teal">Slow Path：</b> read-heavy、accuracy-sensitive、處理報表與稽核。
+                                </div>
+                            </div>
+                            <div class="mt-4 px-3 py-2 rounded-full bg-brand-navy text-white text-xs font-bold shadow-sm">
+                                先解耦，再選技術
+                            </div>
+                        </div>
+
+                        <!-- Manager Need -->
+                        <div class="bg-teal-50/50 border border-teal-100 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-5 text-7xl text-brand-teal/10"><i class="fa-solid fa-chart-simple"></i></div>
+                            <span class="px-2.5 py-1 rounded bg-brand-teal/10 text-brand-teal border border-brand-teal/20 text-[10px] font-bold tracking-wider uppercase">Manager Side</span>
+                            <h3 class="text-lg font-extrabold text-brand-navy mt-3 mb-3">報表資料不能錯</h3>
+                            <p class="text-sm text-brand-textSecondary leading-relaxed mb-4">
+                                主管需要跨部門、跨時間、跨廠區的歷史考勤分析；報表可以短暫延遲，但不能遺漏資料，否則會影響人力配置與稽核可信度。
+                            </p>
+                            <div class="bg-white/80 border border-teal-100 rounded-xl p-3 text-xs text-brand-teal font-bold leading-relaxed">
+                                Design Goal：Accuracy First<br>
+                                <span class="text-slate-500 font-medium">Reporting must be optimized for OLAP.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-brand-amber flex items-start gap-3 shadow-sm">
+                        <i class="fa-solid fa-lightbulb mt-0.5"></i>
+                        <div>
+                            <b>核心決策：</b>門禁流程只留下必要的即時判斷，事件寫入與報表分析改由 Kafka、Worker 與 ClickHouse 在 Slow Path 處理。這樣尖峰刷卡不會被報表查詢拖慢，報表也不用被開門延遲限制。
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Slide 5: Requirements Mapping -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4 mb-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 04 / Requirements Mapping</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 05 / Requirements Mapping</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">功能需求與雲原生架構對照表</h2>
                     </div>
                     <div class="overflow-x-auto flex-grow flex items-center">
@@ -290,10 +356,70 @@
                     </div>
                 </div>
 
-                <!-- Slide 5: High-Level Architecture (Responsive Flow Layout) -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                
+                <!-- Slide 6: Why Fast Path / Slow Path -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 05 / High-Level Architecture</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 06 / Why Fast Path & Slow Path</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">為什麼要拆成 Fast Path 與 Slow Path？</h2>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-5 my-auto">
+                        <div class="bg-slate-50 border border-slate-200/70 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[330px]">
+                            <div>
+                                <div class="w-12 h-12 rounded-xl bg-slate-200/70 text-slate-600 flex items-center justify-center mb-4">
+                                    <i class="fa-solid fa-database text-xl"></i>
+                                </div>
+                                <span class="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase">Option A</span>
+                                <h3 class="text-lg font-extrabold text-brand-navy mt-1 mb-3">單一路徑：API 直接寫 DB</h3>
+                                <p class="text-sm text-brand-textSecondary leading-relaxed">開發最簡單，但刷卡、寫入、報表查詢全部擠在同一條路上。</p>
+                            </div>
+                            <div class="mt-4 bg-rose-50 border border-rose-100 rounded-xl p-3 text-xs text-brand-rose leading-relaxed font-semibold">
+                                <i class="fa-solid fa-circle-xmark mr-1"></i> 報表查詢或 DB 寫入卡住時，會直接拖慢開門決策。
+                            </div>
+                        </div>
+
+                        <div class="bg-indigo-50/50 border-2 border-brand-indigo rounded-2xl p-5 shadow-md flex flex-col justify-between min-h-[330px] relative overflow-hidden">
+                            <div class="absolute -right-5 -top-5 text-8xl text-brand-indigo/10"><i class="fa-solid fa-bolt"></i></div>
+                            <div class="relative z-10">
+                                <div class="w-12 h-12 rounded-xl bg-brand-indigo text-white flex items-center justify-center mb-4 shadow-sm">
+                                    <i class="fa-solid fa-door-open text-xl"></i>
+                                </div>
+                                <span class="text-[10px] font-extrabold tracking-widest text-brand-indigo uppercase">Fast Path</span>
+                                <h3 class="text-lg font-extrabold text-brand-navy mt-1 mb-3">門禁決策：Latency First</h3>
+                                <p class="text-sm text-brand-textSecondary leading-relaxed">只回答一件事：<b>這次刷卡能不能開門？</b> 使用 Redis 做權限與 Anti-passback 判定，避免慢查詢。</p>
+                            </div>
+                            <div class="relative z-10 mt-4 bg-white/80 border border-indigo-100 rounded-xl p-3 text-xs text-brand-indigo leading-relaxed font-semibold">
+                                <i class="fa-solid fa-check mr-1"></i> 不等 DB、不等報表、不做 aggregation，先回應刷卡設備。
+                            </div>
+                        </div>
+
+                        <div class="bg-teal-50/40 border-2 border-brand-teal rounded-2xl p-5 shadow-md flex flex-col justify-between min-h-[330px] relative overflow-hidden">
+                            <div class="absolute -right-5 -top-5 text-8xl text-brand-teal/10"><i class="fa-solid fa-chart-column"></i></div>
+                            <div class="relative z-10">
+                                <div class="w-12 h-12 rounded-xl bg-brand-teal text-white flex items-center justify-center mb-4 shadow-sm">
+                                    <i class="fa-solid fa-chart-line text-xl"></i>
+                                </div>
+                                <span class="text-[10px] font-extrabold tracking-widest text-brand-teal uppercase">Slow Path</span>
+                                <h3 class="text-lg font-extrabold text-brand-navy mt-1 mb-3">紀錄與報表：Accuracy First</h3>
+                                <p class="text-sm text-brand-textSecondary leading-relaxed">Kafka 先吸收事件，再由 Worker 寫入 ClickHouse，支援部門、時間、門禁點等多維度分析。</p>
+                            </div>
+                            <div class="relative z-10 mt-4 bg-white/80 border border-teal-100 rounded-xl p-3 text-xs text-brand-teal leading-relaxed font-semibold">
+                                <i class="fa-solid fa-check mr-1"></i> 報表可以短暫延遲，但 raw data 不能遺漏。
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-brand-textSecondary shadow-sm flex items-center gap-3">
+                        <i class="fa-solid fa-code-branch text-brand-indigo text-lg"></i>
+                        <span><b class="text-brand-navy">設計結論：</b> Fast Path 保護使用者刷卡體驗，Slow Path 保護資料完整性與報表效能；兩者解耦後，報表尖峰不會反向影響開門。</span>
+                    </div>
+                </div>
+
+                <!-- Slide 7: High-Level Architecture (Responsive Flow Layout) -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 07 / High-Level Architecture</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">核心技術架構：Fast vs Slow Path 解耦</h2>
                     </div>
                     
@@ -416,10 +542,136 @@
                     </div>
                 </div>
 
-                <!-- Slide 6: Access Operation Sequence Diagram -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 8: Three APIs Responsibility -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 06 / Sequence Diagram</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 08 / API Boundary Design</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">三個 API 各自負責什麼？</h2>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-5 my-auto">
+                        <div class="bg-indigo-50/50 border border-indigo-200 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 rounded-xl bg-brand-indigo text-white flex items-center justify-center shadow-sm"><i class="fa-solid fa-id-card"></i></div>
+                                <div>
+                                    <h3 class="text-xl font-extrabold text-brand-navy">Access API</h3>
+                                    <p class="text-[10px] text-brand-indigo font-bold uppercase tracking-widest">Door Decision Gateway</p>
+                                </div>
+                            </div>
+                            <div class="space-y-3 text-sm text-brand-textSecondary leading-relaxed">
+                                <p><b class="text-brand-indigo">Input:</b> CardID, DoorID, Direction, Timestamp</p>
+                                <p><b class="text-brand-indigo">責任:</b> 驗證權限、黑名單、Anti-passback 狀態。</p>
+                                <p><b class="text-brand-indigo">Output:</b> Open / Deny，並非同步送出 raw event。</p>
+                            </div>
+                            <div class="mt-4 bg-white border border-indigo-100 rounded-xl p-3 text-xs text-brand-indigo font-semibold">
+                                不負責：報表查詢、歷史聚合、複雜 DB Join。
+                            </div>
+                        </div>
+
+                        <div class="bg-teal-50/50 border border-teal-200 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-sm"><i class="fa-solid fa-chart-pie"></i></div>
+                                <div>
+                                    <h3 class="text-xl font-extrabold text-brand-navy">Report API</h3>
+                                    <p class="text-[10px] text-brand-teal font-bold uppercase tracking-widest">Analytics & Query Layer</p>
+                                </div>
+                            </div>
+                            <div class="space-y-3 text-sm text-brand-textSecondary leading-relaxed">
+                                <p><b class="text-brand-teal">Input:</b> User / Dept / Time Range / Report Type</p>
+                                <p><b class="text-brand-teal">責任:</b> 讀取 ClickHouse 或 Report Cache，套用主管權限過濾。</p>
+                                <p><b class="text-brand-teal">Output:</b> 個人、部門、組織樹、歷史考勤報表。</p>
+                            </div>
+                            <div class="mt-4 bg-white border border-teal-100 rounded-xl p-3 text-xs text-brand-teal font-semibold">
+                                不參與：開門判定，避免報表查詢影響刷卡延遲。
+                            </div>
+                        </div>
+
+                        <div class="bg-amber-50/50 border border-amber-200 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 rounded-xl bg-brand-amber text-white flex items-center justify-center shadow-sm"><i class="fa-solid fa-user-shield"></i></div>
+                                <div>
+                                    <h3 class="text-xl font-extrabold text-brand-navy">Admin API</h3>
+                                    <p class="text-[10px] text-brand-amber font-bold uppercase tracking-widest">Policy Management</p>
+                                </div>
+                            </div>
+                            <div class="space-y-3 text-sm text-brand-textSecondary leading-relaxed">
+                                <p><b class="text-brand-amber">Input:</b> 使用者、部門、門禁規則、黑名單設定。</p>
+                                <p><b class="text-brand-amber">責任:</b> 管理權限資料與組織樹，發出 permission change event。</p>
+                                <p><b class="text-brand-amber">Output:</b> 更新 DB，觸發 Redis cache invalidation。</p>
+                            </div>
+                            <div class="mt-4 bg-white border border-amber-100 rounded-xl p-3 text-xs text-brand-amber font-semibold">
+                                讓權限更新同步到 Fast Path，但不直接處理刷卡流量。
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-brand-textSecondary shadow-sm">
+                        <b class="text-brand-navy">API 拆分原則：</b> Access API 專注低延遲，Report API 專注查詢與分析，Admin API 專注規則與權限管理；每個 API 都有清楚邊界，才能獨立擴容與維護。
+                    </div>
+                </div>
+
+                <!-- Slide 9: Access API Internal Logic -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 09 / Access API Internal Logic</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">Access API：50ms 內到底做了什麼？</h2>
+                    </div>
+
+                    <div class="my-auto grid grid-cols-[1.15fr_0.85fr] gap-6 items-stretch">
+                        <div class="bg-slate-50 border border-slate-200/70 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-center justify-between mb-5">
+                                <span class="text-xs font-extrabold tracking-widest text-brand-indigo uppercase">Critical Path</span>
+                                <span class="px-3 py-1 rounded-full bg-indigo-100 text-brand-indigo border border-indigo-200 text-xs font-bold">Target: &lt; 50ms</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3">
+                                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-brand-indigo flex items-center justify-center font-extrabold text-sm">1</div>
+                                    <div><b class="text-brand-navy">Receive Swipe</b><p class="text-xs text-brand-textSecondary">接收 CardID / DoorID / Direction / Timestamp</p></div>
+                                </div>
+                                <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3">
+                                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-brand-indigo flex items-center justify-center font-extrabold text-sm">2</div>
+                                    <div><b class="text-brand-navy">Validate Request</b><p class="text-xs text-brand-textSecondary">檢查格式、設備來源、必要欄位與基本風險</p></div>
+                                </div>
+                                <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-brand-emerald flex items-center justify-center font-extrabold text-sm">3</div>
+                                    <div><b class="text-brand-navy">Redis Permission Check</b><p class="text-xs text-brand-textSecondary">O(1) 查權限、黑名單、門禁規則，不查主資料庫</p></div>
+                                </div>
+                                <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-brand-emerald flex items-center justify-center font-extrabold text-sm">4</div>
+                                    <div><b class="text-brand-navy">Anti-passback State</b><p class="text-xs text-brand-textSecondary">確認上一筆進出方向，避免重複進門或跟隨入侵</p></div>
+                                </div>
+                                <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3">
+                                    <div class="w-8 h-8 rounded-lg bg-teal-100 text-brand-teal flex items-center justify-center font-extrabold text-sm">5</div>
+                                    <div><b class="text-brand-navy">Return Decision + Publish Event</b><p class="text-xs text-brand-textSecondary">先回傳 Open / Deny，再把 raw event 非同步送到 Kafka</p></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-4">
+                            <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 shadow-sm flex-1">
+                                <h3 class="text-lg font-extrabold text-brand-navy mb-3 flex items-center gap-2"><i class="fa-solid fa-gauge-high text-brand-indigo"></i> 為了低延遲，我們刻意不做</h3>
+                                <div class="space-y-2 text-sm text-brand-textSecondary">
+                                    <p><i class="fa-solid fa-xmark text-brand-rose mr-1"></i> 不做 DB Join 或複雜查詢</p>
+                                    <p><i class="fa-solid fa-xmark text-brand-rose mr-1"></i> 不等 ClickHouse insert 完成</p>
+                                    <p><i class="fa-solid fa-xmark text-brand-rose mr-1"></i> 不在請求內產生報表</p>
+                                    <p><i class="fa-solid fa-xmark text-brand-rose mr-1"></i> 不讓 Worker 狀態阻塞開門</p>
+                                </div>
+                            </div>
+                            <div class="bg-teal-50 border border-teal-200 rounded-2xl p-5 shadow-sm flex-1">
+                                <h3 class="text-lg font-extrabold text-brand-navy mb-3 flex items-center gap-2"><i class="fa-solid fa-shield-halved text-brand-teal"></i> 可靠性設計</h3>
+                                <p class="text-sm text-brand-textSecondary leading-relaxed">即使後端分析資料庫暫時變慢，Access API 仍可依靠 Redis cache 完成判定；事件先進 Kafka，後續由 Worker 重試與補寫。</p>
+                                <div class="mt-4 bg-white/80 border border-teal-100 rounded-xl p-3 text-xs text-brand-teal font-semibold">
+                                    Fast Path 的成功標準：門能即時且正確地開或拒絕。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 10: Access Operation Sequence Diagram -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 10 / Sequence Diagram</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">開門決策時序：決策與寫入完全解耦</h2>
                     </div>
                     
@@ -536,10 +788,10 @@
                     </div>
                 </div>
 
-                <!-- Slide 7: Anti-Passback Design -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 11: Anti-Passback Design -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 07 / Anti-Passback Design</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 11 / Anti-Passback Design</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">防跟隨與重複進出機制 (Anti-Passback)</h2>
                     </div>
                     
@@ -641,11 +893,51 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                         </div>
                     </div>
                 </div>
-
-                <!-- Slide 8: Resilience / ClickHouse Down Scenario -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 12: Why Kafka -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 08 / Event-Driven Buffer & Resilience</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 12 / Why Kafka</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">為什麼需要 Kafka？隔離尖峰與故障</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                        <div class="bg-rose-50 border border-rose-200 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-5 -bottom-5 text-8xl text-rose-200/40"><i class="fa-solid fa-database"></i></div>
+                            <span class="px-2.5 py-1 rounded bg-rose-100 text-brand-rose border border-rose-200 text-xs font-bold tracking-wider">WITHOUT KAFKA</span>
+                            <h3 class="text-xl font-extrabold text-brand-navy mt-4 mb-3">Access API 直接寫 DB</h3>
+                            <div class="space-y-3 text-sm text-brand-textSecondary leading-relaxed relative z-10">
+                                <p><b class="text-brand-rose">同步等待：</b>每次刷卡都要等 DB insert 成功，DB 慢就會拖慢開門。</p>
+                                <p><b class="text-brand-rose">尖峰塞車：</b>交班時間大量事件同時寫入，connection pool 可能被耗盡。</p>
+                                <p><b class="text-brand-rose">故障連鎖：</b>DB 暫時不可用時，門禁體驗也會被牽連。</p>
+                            </div>
+                            <div class="mt-5 text-xs font-mono bg-white/70 border border-rose-100 rounded-xl px-3 py-2 text-brand-rose">
+                                Badge → API → DB write → Door response
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-5 -bottom-5 text-8xl text-blue-200/40"><i class="fa-solid fa-layer-group"></i></div>
+                            <span class="px-2.5 py-1 rounded bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold tracking-wider">WITH KAFKA</span>
+                            <h3 class="text-xl font-extrabold text-brand-navy mt-4 mb-3">Kafka 作為事件緩衝層</h3>
+                            <div class="space-y-3 text-sm text-brand-textSecondary leading-relaxed relative z-10">
+                                <p><b class="text-blue-700">快速回應：</b>Access API 判斷完成後即可回傳，不等待分析資料庫。</p>
+                                <p><b class="text-blue-700">流量削峰：</b>尖峰事件先進 topic，再由 Worker 依能力批次消費。</p>
+                                <p><b class="text-blue-700">故障隔離：</b>ClickHouse 或 DB 短暫異常時，事件仍可保留在 queue 中等待恢復。</p>
+                            </div>
+                            <div class="mt-5 text-xs font-mono bg-white/70 border border-blue-100 rounded-xl px-3 py-2 text-blue-700">
+                                Badge → API → Kafka → Worker → ClickHouse
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 text-sm text-brand-textSecondary shadow-sm">
+                        <b class="text-brand-navy">Decision：</b>Kafka 的角色不是單純「存資料」，而是把 <b>開門延遲</b> 與 <b>資料持久化速度</b> 分開，讓 Fast Path 不被 Slow Path 拖慢。
+                    </div>
+                </div>
+
+
+                <!-- Slide 13: Resilience / ClickHouse Down Scenario -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 13 / Event-Driven Buffer & Resilience</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">異步緩衝與斷連容錯機制</h2>
                     </div>
 
@@ -687,11 +979,65 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                         </div>
                     </div>
                 </div>
-
-                <!-- Slide 9: Reporting & Hierarchical Permission -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 14: Slow Path / Report Pipeline -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 09 / Hierarchical Permissions</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 14 / Slow Path & Report Pipeline</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">Slow Path：從 Raw Event 到主管報表</h2>
+                    </div>
+                    
+                    <div class="my-auto space-y-5">
+                        <div class="grid grid-cols-5 gap-3 items-stretch text-center">
+                            <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+                                <i class="fa-solid fa-inbox text-blue-600 text-2xl mb-2"></i>
+                                <h3 class="font-extrabold text-brand-navy text-sm">1. Kafka Topic</h3>
+                                <p class="text-[11px] text-brand-textSecondary mt-1">保存 raw swipe events</p>
+                            </div>
+                            <div class="flex items-center justify-center text-slate-400 font-bold">➔</div>
+                            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+                                <i class="fa-solid fa-gears text-slate-600 text-2xl mb-2"></i>
+                                <h3 class="font-extrabold text-brand-navy text-sm">2. Aggregation Worker</h3>
+                                <p class="text-[11px] text-brand-textSecondary mt-1">批次消費、清洗、補欄位</p>
+                            </div>
+                            <div class="flex items-center justify-center text-slate-400 font-bold">➔</div>
+                            <div class="bg-teal-50 border border-teal-200 rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+                                <i class="fa-solid fa-server text-brand-teal text-2xl mb-2"></i>
+                                <h3 class="font-extrabold text-brand-navy text-sm">3. ClickHouse</h3>
+                                <p class="text-[11px] text-brand-textSecondary mt-1">寫入明細與預聚合資料</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-5 gap-3 items-stretch text-center">
+                            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+                                <i class="fa-solid fa-table-columns text-brand-indigo text-2xl mb-2"></i>
+                                <h3 class="font-extrabold text-brand-navy text-sm">4. Report Views</h3>
+                                <p class="text-[11px] text-brand-textSecondary mt-1">每日 / 部門 / 個人統計</p>
+                            </div>
+                            <div class="flex items-center justify-center text-slate-400 font-bold">➔</div>
+                            <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+                                <i class="fa-solid fa-shield-halved text-brand-emerald text-2xl mb-2"></i>
+                                <h3 class="font-extrabold text-brand-navy text-sm">5. Report API</h3>
+                                <p class="text-[11px] text-brand-textSecondary mt-1">套用主管權限與組織樹過濾</p>
+                            </div>
+                            <div class="flex items-center justify-center text-slate-400 font-bold">➔</div>
+                            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+                                <i class="fa-solid fa-chart-line text-brand-teal text-2xl mb-2"></i>
+                                <h3 class="font-extrabold text-brand-navy text-sm">6. Dashboard</h3>
+                                <p class="text-[11px] text-brand-textSecondary mt-1">員工、主管、高階主管報表</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm"><b class="text-brand-indigo block mb-1">Raw Events</b><span class="text-brand-textSecondary">保留每次刷卡嘗試，支援稽核與異常追蹤。</span></div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm"><b class="text-brand-teal block mb-1">Aggregated Metrics</b><span class="text-brand-textSecondary">預先計算常見報表，降低查詢延遲。</span></div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm"><b class="text-brand-amber block mb-1">Sync Status</b><span class="text-brand-textSecondary">若 Kafka lag 過高，前端顯示資料可能延遲。</span></div>
+                    </div>
+                </div>
+
+
+                <!-- Slide 15: Reporting & Hierarchical Permission -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 15 / Hierarchical Permissions</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">階層式部門權限與考勤統計報表</h2>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
@@ -756,11 +1102,45 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                         </div>
                     </div>
                 </div>
-
-                <!-- Slide 10: ClickHouse Schema -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 16: Why ClickHouse -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 10 / ClickHouse Table Schema</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 16 / Why ClickHouse</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">為什麼選 ClickHouse 做報表分析？</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-7 my-auto">
+                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm">
+                            <span class="px-2.5 py-1 rounded bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold tracking-wider">REPORTING WORKLOAD</span>
+                            <h3 class="text-xl font-extrabold text-brand-navy mt-4 mb-4">報表查詢不是一般交易查詢</h3>
+                            <div class="space-y-3 text-sm text-brand-textSecondary leading-relaxed">
+                                <p><i class="fa-solid fa-check text-brand-teal mr-2"></i>查某段時間內大量事件。</p>
+                                <p><i class="fa-solid fa-check text-brand-teal mr-2"></i>依部門、員工、門禁點、日期做 group by。</p>
+                                <p><i class="fa-solid fa-check text-brand-teal mr-2"></i>高階主管需要跨組織樹的歷史彙總。</p>
+                                <p><i class="fa-solid fa-check text-brand-teal mr-2"></i>資料多為 append-only log，很少逐筆更新。</p>
+                            </div>
+                        </div>
+                        <div class="bg-teal-50 border border-teal-200 rounded-2xl p-6 shadow-sm">
+                            <span class="px-2.5 py-1 rounded bg-teal-100 text-brand-teal border border-teal-200 text-xs font-bold tracking-wider">WHY CLICKHOUSE</span>
+                            <h3 class="text-xl font-extrabold text-brand-navy mt-4 mb-4">列式 OLAP 更符合資料型態</h3>
+                            <div class="space-y-3 text-sm text-brand-textSecondary leading-relaxed">
+                                <p><b class="text-brand-teal">Columnar Storage：</b>查詢只讀需要的欄位，適合大量聚合。</p>
+                                <p><b class="text-brand-teal">Compression：</b>大量重複欄位如 DoorID、DeptID 壓縮效果佳。</p>
+                                <p><b class="text-brand-teal">Partition / Sort Key：</b>依日期與組織維度加速歷史查詢。</p>
+                                <p><b class="text-brand-teal">Materialized View：</b>常用報表可以預先聚合，提升 Dashboard 回應速度。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-brand-textSecondary shadow-sm">
+                        <b class="text-brand-indigo">Decision：</b>MariaDB / PostgreSQL 適合權限、使用者、組織等交易資料；ClickHouse 則負責海量門禁事件的分析查詢。把 OLTP 與 OLAP 分開，避免歷史報表拖慢核心系統。
+                    </div>
+                </div>
+
+
+                <!-- Slide 17: ClickHouse Schema -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 17 / ClickHouse Table Schema</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">ClickHouse 資料庫建模 (OLAP)</h2>
                     </div>
                     
@@ -804,11 +1184,177 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                         <b>ClickHouse 架構精髓：</b> 欄位式儲存不使用強外鍵關聯（FK）。表結構採取輕度冗餘設計，透過 `LowCardinality` 優化重複字串，並利用 `PARTITION BY` 進行按月物理分割，大幅收斂查詢掃描範圍。
                     </div>
                 </div>
-
-                <!-- Slide 11: Cloud Native Deployment -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 18: Why Go -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 11 / Cloud Native Deployment</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 18 / Why Go</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">為什麼後端選用 Go？</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-5 my-auto">
+                        <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                            <i class="fa-solid fa-gauge-high text-brand-indigo text-3xl mb-4"></i>
+                            <h3 class="text-lg font-extrabold text-brand-navy mb-2">Low Latency API</h3>
+                            <p class="text-sm text-brand-textSecondary leading-relaxed">Go 是編譯型語言，執行效率穩定，適合 Access API 這種需要快速回應的服務。</p>
+                        </div>
+                        <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                            <i class="fa-solid fa-network-wired text-brand-emerald text-3xl mb-4"></i>
+                            <h3 class="text-lg font-extrabold text-brand-navy mb-2">High Concurrency</h3>
+                            <p class="text-sm text-brand-textSecondary leading-relaxed">goroutine 適合處理大量 I/O：Redis 查詢、Kafka publish / consume、Worker 背景處理。</p>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                            <i class="fa-solid fa-cube text-slate-600 text-3xl mb-4"></i>
+                            <h3 class="text-lg font-extrabold text-brand-navy mb-2">Cloud Native Fit</h3>
+                            <p class="text-sm text-brand-textSecondary leading-relaxed">單一 binary、Docker image 較小、啟動快，適合 Kubernetes HPA 快速 scale out。</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-5 text-sm">
+                        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                            <b class="text-brand-indigo block mb-2">適合放在 Go 的服務</b>
+                            <p class="text-brand-textSecondary leading-relaxed">Access API、Admin API、Report API、Kafka Consumer Worker、Cache Invalidation Worker。</p>
+                        </div>
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+                            <b class="text-brand-amber block mb-2">Trade-off</b>
+                            <p class="text-brand-textSecondary leading-relaxed">Go 的框架生態不像 Java Spring 完整，錯誤處理較繁瑣，也需要團隊理解 context timeout 與 goroutine 管理。</p>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Slide 19: Technology Trade-off Matrix -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4 mb-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 19 / Technology Trade-off Matrix</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">技術選型不是堆工具，而是取捨</h2>
+                    </div>
+                    <div class="flex-grow flex items-center">
+                        <table class="w-full text-left border-collapse text-[11px] md:text-xs">
+                            <thead>
+                                <tr class="border-b-2 border-slate-200 bg-slate-50 text-brand-indigo">
+                                    <th class="py-3 px-3 font-extrabold">Component</th>
+                                    <th class="py-3 px-3 font-extrabold">Chosen</th>
+                                    <th class="py-3 px-3 font-extrabold">Alternatives</th>
+                                    <th class="py-3 px-3 font-extrabold">Why We Choose It</th>
+                                    <th class="py-3 px-3 font-extrabold">Trade-off</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-brand-textSecondary">
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="py-3 px-3 font-bold text-brand-navy">API Language</td>
+                                    <td class="py-3 px-3 font-bold text-brand-indigo">Go</td>
+                                    <td class="py-3 px-3">Java / Node.js / Python</td>
+                                    <td class="py-3 px-3">低延遲、高併發、單一 binary，適合 Access API 與 Worker。</td>
+                                    <td class="py-3 px-3">框架生態較精簡，需管理 goroutine 與 timeout。</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="py-3 px-3 font-bold text-brand-navy">Event Queue</td>
+                                    <td class="py-3 px-3 font-bold text-blue-600">Kafka</td>
+                                    <td class="py-3 px-3">RabbitMQ / Redis Streams</td>
+                                    <td class="py-3 px-3">高吞吐、可保留事件、適合 append-only access log。</td>
+                                    <td class="py-3 px-3">維運與 partition 設計較複雜。</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="py-3 px-3 font-bold text-brand-navy">Fast Cache</td>
+                                    <td class="py-3 px-3 font-bold text-brand-emerald">Redis</td>
+                                    <td class="py-3 px-3">Local memory / DB only</td>
+                                    <td class="py-3 px-3">O(1) 查詢權限、黑名單與 Anti-passback 狀態。</td>
+                                    <td class="py-3 px-3">需要 Cache Invalidation 與 HA 設計。</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="py-3 px-3 font-bold text-brand-navy">OLAP Storage</td>
+                                    <td class="py-3 px-3 font-bold text-brand-teal">ClickHouse</td>
+                                    <td class="py-3 px-3">MariaDB / PostgreSQL / ES</td>
+                                    <td class="py-3 px-3">列式儲存與聚合查詢快，適合歷史出勤報表。</td>
+                                    <td class="py-3 px-3">不適合高頻交易更新與複雜 OLTP。</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="py-3 px-3 font-bold text-brand-navy">Orchestration</td>
+                                    <td class="py-3 px-3 font-bold text-slate-700">Kubernetes HPA</td>
+                                    <td class="py-3 px-3">VM manual scaling</td>
+                                    <td class="py-3 px-3">尖峰刷卡與 Worker lag 可水平擴容。</td>
+                                    <td class="py-3 px-3">部署初期複雜度較高。</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm text-brand-textSecondary shadow-sm">
+                        <b class="text-brand-indigo">Decision principle:</b> Fast Path 選低延遲與高可用；Slow Path 選高吞吐、可追溯與高聚合效能。
+                    </div>
+                </div>
+
+                <!-- Slide 20: Consistency Model -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 20 / Consistency Model</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">一致性分級：不是所有資料都要同步等待</h2>
+                    </div>
+                    <div class="grid grid-cols-3 gap-5 my-auto">
+                        <div class="bg-indigo-50 border-2 border-brand-indigo rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-5 text-7xl text-brand-indigo/10"><i class="fa-solid fa-door-open"></i></div>
+                            <span class="text-[10px] font-extrabold text-brand-indigo uppercase tracking-widest">Must be immediate</span>
+                            <h3 class="text-xl font-extrabold text-brand-navy mt-2 mb-3">Door Decision</h3>
+                            <p class="text-sm text-brand-textSecondary leading-relaxed mb-3">權限、黑名單與 Anti-passback 狀態必須在 Fast Path 中立即判斷。</p>
+                            <div class="text-xs bg-white border border-indigo-100 rounded-lg p-2 font-semibold text-brand-indigo">Redis state update before response</div>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-5 text-7xl text-blue-500/10"><i class="fa-solid fa-stream"></i></div>
+                            <span class="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest">Can be delayed</span>
+                            <h3 class="text-xl font-extrabold text-brand-navy mt-2 mb-3">Event Persistence</h3>
+                            <p class="text-sm text-brand-textSecondary leading-relaxed mb-3">刷卡事件先進 Kafka，稍後由 Worker 寫入 ClickHouse，保留完整 raw data。</p>
+                            <div class="text-xs bg-white border border-blue-100 rounded-lg p-2 font-semibold text-blue-700">At-least-once + idempotent event_id</div>
+                        </div>
+                        <div class="bg-teal-50 border border-teal-200 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-5 text-7xl text-brand-teal/10"><i class="fa-solid fa-chart-pie"></i></div>
+                            <span class="text-[10px] font-extrabold text-brand-teal uppercase tracking-widest">Must be transparent</span>
+                            <h3 class="text-xl font-extrabold text-brand-navy mt-2 mb-3">Report Result</h3>
+                            <p class="text-sm text-brand-textSecondary leading-relaxed mb-3">報表允許短暫延遲，但不能假裝已同步；需顯示資料延遲或缺失提示。</p>
+                            <div class="text-xs bg-white border border-teal-100 rounded-lg p-2 font-semibold text-brand-teal">Show sync status & lag</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-brand-textSecondary shadow-sm flex items-start gap-3">
+                        <i class="fa-solid fa-scale-balanced text-brand-indigo mt-1"></i>
+                        <p><b class="text-brand-navy">核心取捨：</b>開門狀態追求即時正確；事件寫入採最終一致；報表可以延遲，但必須可觀測、可追溯、可稽核。</p>
+                    </div>
+                </div>
+
+                <!-- Slide 21: Failure Scenario -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 21 / Failure Scenario</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">故障情境分析：壞掉時系統如何降級？</h2>
+                    </div>
+                    <div class="grid grid-cols-2 gap-5 my-auto text-sm">
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-center gap-2 mb-2 text-brand-teal font-extrabold text-lg"><i class="fa-solid fa-server"></i> ClickHouse Down</div>
+                            <p class="text-brand-textSecondary leading-relaxed">門禁不受影響；Kafka 繼續保留事件，Worker 暫停或 retry。Report API 顯示「資料延遲」。</p>
+                            <span class="inline-block mt-3 text-xs bg-teal-50 text-brand-teal border border-teal-100 rounded-full px-3 py-1 font-bold">Impact: Reporting only</span>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-center gap-2 mb-2 text-blue-600 font-extrabold text-lg"><i class="fa-solid fa-list-check"></i> Kafka Lag High</div>
+                            <p class="text-brand-textSecondary leading-relaxed">Access API 仍可回應；報表落後。Prometheus 偵測 consumer lag，擴增 Worker 或告警。</p>
+                            <span class="inline-block mt-3 text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-3 py-1 font-bold">Action: Scale workers</span>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-center gap-2 mb-2 text-brand-emerald font-extrabold text-lg"><i class="fa-solid fa-bolt"></i> Redis Unavailable</div>
+                            <p class="text-brand-textSecondary leading-relaxed">Fast Path 最高風險點。需 Redis replica / Sentinel / Cluster；短時間 fallback local cache，但安全性下降。</p>
+                            <span class="inline-block mt-3 text-xs bg-emerald-50 text-brand-emerald border border-emerald-100 rounded-full px-3 py-1 font-bold">Risk: Door decision</span>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-center gap-2 mb-2 text-brand-amber font-extrabold text-lg"><i class="fa-solid fa-user-lock"></i> Permission DB Down</div>
+                            <p class="text-brand-textSecondary leading-relaxed">既有員工仍可由 Redis cache 判斷；Admin 更新暫停，恢復後由 permission-events 重新同步。</p>
+                            <span class="inline-block mt-3 text-xs bg-amber-50 text-brand-amber border border-amber-100 rounded-full px-3 py-1 font-bold">Degrade: No rule update</span>
+                        </div>
+                    </div>
+                    <div class="bg-rose-50 border border-rose-200 rounded-xl p-3 text-sm text-brand-textSecondary shadow-sm">
+                        <b class="text-brand-rose">Design goal:</b> 報表服務可以延遲，資料寫入可以排隊，但實體開門決策不應被 Slow Path 或資料庫故障拖住。
+                    </div>
+                </div>
+
+
+                <!-- Slide 22: Cloud Native Deployment -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 22 / Cloud Native Deployment</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">Kubernetes 雲原生部署拓撲</h2>
                     </div>
 
@@ -852,10 +1398,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 12: Scalability / HPA Demo -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 23: Scalability / HPA Demo -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 12 / Scalability Demo</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 23 / Scalability Demo</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">換班尖峰：Kubernetes HPA 動態擴容架構</h2>
                     </div>
 
@@ -913,10 +1459,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 13: Observability Dashboard -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 24: Observability Dashboard -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 13 / Observability Dashboard</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 24 / Observability Dashboard</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">可觀測性：Prometheus + Grafana 監控指標</h2>
                     </div>
 
@@ -952,10 +1498,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 14: Testing & Validation -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 25: Testing & Validation -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 14 / Testing & Validation</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 25 / Testing & Validation</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">分層自動化測試與四大驗證案例</h2>
                     </div>
 
@@ -994,10 +1540,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 15: Code Quality Assurance -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 26: Code Quality Assurance -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 15 / Code Quality Assurance</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 26 / Code Quality Assurance</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">代碼品質保證與自動化 CI/CD 流水線</h2>
                     </div>
 
@@ -1055,10 +1601,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 16: Demo Flow -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 27: Demo Flow -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 16 / Live Demo Workflow</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 27 / Live Demo Workflow</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">現場系統 Demo 流程與驗證劇本</h2>
                     </div>
 
@@ -1127,10 +1673,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 17: Challenges & Trade-offs -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                <!-- Slide 28: Challenges & Trade-offs -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 17 / Engineering Trade-offs</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 28 / Engineering Trade-offs</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">面臨挑戰與工程權衡 (Trade-offs)</h2>
                     </div>
 
@@ -1165,10 +1711,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 18: Conclusion -->
-                <div class="slide w-[5.5555%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full text-center">
+                <!-- Slide 29: Conclusion -->
+                <div class="slide w-[3.448276%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full text-center">
                     <div class="border-l-4 border-brand-indigo pl-4 text-left">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 18 / Summary & Conclusion</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 29 / Summary & Conclusion</span>
                     </div>
 
                     <div class="my-auto max-w-3xl mx-auto space-y-6">
@@ -1227,17 +1773,41 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
 
     <!-- Script for presentations switching, animation and simulation -->
     <script>
-        const totalSlides = 18;
+        const totalSlides = 29;
         let currentSlide = 1;
         const slides = document.querySelectorAll('.slide');
 
         // Titles of slides for minimap tooltips
         const slideTitles = [
-            "Title", "Problem Statement", "Persona & Pain Points", "Requirements Mapping",
-            "High-Level Architecture", "Sequence Diagram", "Anti-Passback Design",
-            "Event Resilience Buffer", "Hierarchical Permissions", "ClickHouse Schema",
-            "Kubernetes Deployment", "HPA Scaling Demo", "Observability Dash", "Testing Matrix",
-            "Code Quality", "Live Demo Script", "Engineering Trade-offs", "Conclusion"
+            "Title",
+            "Problem Statement",
+            "Persona & Pain Points",
+            "Design Decision Overview",
+            "Requirements Mapping",
+            "Why Fast/Slow Path",
+            "High-Level Architecture",
+            "Three APIs",
+            "Access API Logic",
+            "Sequence Diagram",
+            "Anti-Passback Design",
+            "Why Kafka",
+            "Event Resilience Buffer",
+            "Slow Path Pipeline",
+            "Hierarchical Permissions",
+            "Why ClickHouse",
+            "ClickHouse Schema",
+            "Why Go",
+            "Technology Trade-off Matrix",
+            "Consistency Model",
+            "Failure Scenario",
+            "Kubernetes Deployment",
+            "HPA Scaling Demo",
+            "Observability Dash",
+            "Testing Matrix",
+            "Code Quality",
+            "Live Demo Script",
+            "Engineering Trade-offs",
+            "Conclusion"
         ];
 
         function initSlides() {
