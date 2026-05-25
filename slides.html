@@ -595,33 +595,37 @@ employee:{id}:last_time ➔ "1716611822"
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto text-xs font-mono">
                         <!-- Events Log -->
                         <div class="bg-slate-900 border border-cyber-border rounded-xl p-4">
-                            <span class="text-cyber-cyan font-bold block border-b border-cyber-border pb-1 mb-2">📊 access_events (MergeTree Engine)</span>
+                            <span class="text-cyber-cyan font-bold block border-b border-cyber-border pb-1 mb-2">📊 access_control.inout_events </span>
                             <div class="space-y-1 text-slate-400 text-[10px]">
-                                <p><b class="text-slate-200">event_id</b> UUID</p>
-                                <p><b class="text-slate-200">event_time</b> DateTime64(3, 'Asia/Taipei')</p>
-                                <p>employee_id UInt32</p>
-                                <p>department_id UInt32</p>
-                                <p>door_id UInt32</p>
-                                <p>event_type LowCardinality(String) <span class="text-slate-500">-- 'ENTER', 'EXIT'</span></p>
-                                <p>decision LowCardinality(String) <span class="text-slate-500">-- 'PERMIT', 'DENY'</span></p>
-                                <p>sync_status UInt8</p>
+                                <p><b class="text-slate-200">id</b> UUID</p>
+                                <p><b class="text-slate-200">event_time</b> DateTime64(3, 'UTC')</p>
+                                <p>employee_id UUID</p>
+                                <p>door_id UUID</p>
+                                <p>direction Enum8('IN' = 1, 'OUT' = 2)</p>
+                                <p>status Enum8('ALLOW' = 1, 'DENY' = 2)</p>
+                                <p>reason Nullable(String)</p>
+                                <p>source_ip String</p>
+                                <p>card_uid String</p>
+                                <p>org_unit_id UUID</p>
                                 <p class="text-amber-400 mt-2">ENGINE = MergeTree()</p>
                                 <p class="text-amber-400">PARTITION BY toYYYYMM(event_time)</p>
-                                <p class="text-amber-400">ORDER BY (department_id, employee_id, event_time)</p>
+                                <p class="text-amber-400">ORDER BY (org_unit_id, event_time, employee_id)</p>
+
                             </div>
                         </div>
                         <!-- Daily Summary -->
                         <div class="bg-slate-900 border border-cyber-border rounded-xl p-4">
-                            <span class="text-cyber-cyan font-bold block border-b border-cyber-border pb-1 mb-2">📈 attendance_daily_summary (SummingMergeTree)</span>
+                            <span class="text-cyber-cyan font-bold block border-b border-cyber-border pb-1 mb-2">📈 access_control.pre_aggregated_reports</span>
                             <div class="space-y-1 text-slate-400 text-[10px]">
-                                <p><b class="text-slate-200">summary_date</b> Date</p>
-                                <p>employee_id UInt32</p>
+                                <p><b class="text-slate-200">report_date</b> Date</p>
+                                <p>org_unit_id UUID</p>
                                 <p>department_id UInt32</p>
-                                <p>first_in Nullable(DateTime)</p>
-                                <p>last_out Nullable(DateTime)</p>
-                                <p>stay_hours Decimal32(2)</p>
-                                <p class="text-amber-400 mt-2">ENGINE = SummingMergeTree()</p>
-                                <p class="text-amber-400">ORDER BY (summary_date, department_id, employee_id)</p>
+                                <p>total_entries SimpleAggregateFunction(sum, UInt64)</p>
+                                <p>total_exits SimpleAggregateFunction(sum, UInt64)</p>
+                                <p>unique_employees AggregateFunction(uniq, UUID)</p>
+                                <p class="text-amber-400 mt-2">ENGINE = AggregatingMergeTree()</p>
+                                <p class="text-amber-400">PRIMARY KEY (org_unit_id, report_date)</p>
+                                <p class="text-amber-400">ORDER BY (org_unit_id, report_date)</p>
                             </div>
                         </div>
                     </div>
