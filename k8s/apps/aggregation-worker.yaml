@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aggregation-worker
+  namespace: access-control
+  labels:
+    app: aggregation-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aggregation-worker
+  template:
+    metadata:
+      labels:
+        app: aggregation-worker
+    spec:
+      containers:
+      - name: aggregation-worker
+        image: asia-east1-docker.pkg.dev/access-api-497314/access-api-repo/aggregation-worker:v1
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        env:
+        - name: KAFKA_BROKERS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_BROKERS
+        - name: KAFKA_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_TOPIC_INOUT
+        - name: KAFKA_GROUP
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_GROUP_AGGREGATION
+        - name: CLICKHOUSE_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CLICKHOUSE_ADDR
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: CLICKHOUSE_PASSWORD

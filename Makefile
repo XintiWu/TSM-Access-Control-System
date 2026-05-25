@@ -52,16 +52,16 @@ seed-ch:
 	@echo "ClickHouse seed applied"
 
 seed:
-	@chmod +x scripts/seed-redis.sh scripts/demo.sh scripts/demo-ban.sh scripts/verify-pipeline.sh
-	@./scripts/seed-redis.sh
+	@chmod +x scripts/utils/seed-redis.sh scripts/demo/demo.sh scripts/demo/demo-ban.sh scripts/demo/verify-pipeline.sh
+	@./scripts/utils/seed-redis.sh
 
 demo: swipe-demo
 
 demo-ban:
-	@./scripts/demo-ban.sh
+	@./scripts/demo/demo-ban.sh
 
 swipe-demo:
-	@./scripts/demo.sh
+	@./scripts/demo/demo.sh
 
 ban:
 	curl -sf -X POST "$(ADMIN_URL)/admin/employees/$(USER)/ban" | jq .
@@ -90,20 +90,24 @@ test-e2e-pipeline:
 	E2E_PIPELINE=1 $(MAKE) test-integration
 
 verify-pipeline:
-	@./scripts/verify-pipeline.sh
+	@./scripts/demo/verify-pipeline.sh
+
+verify-performance:
+	@chmod +x scripts/demo/verify-performance.sh
+	@./scripts/demo/verify-performance.sh
 
 demo-report:
-	@chmod +x scripts/demo-report.sh
-	@./scripts/demo-report.sh
+	@chmod +x scripts/demo/demo-report.sh
+	@./scripts/demo/demo-report.sh
 
-# Bulk swipe traffic → ClickHouse → CSV/PDF reports (see scripts/demo-full-flow.sh)
+# Bulk swipe traffic → ClickHouse → CSV/PDF reports (see scripts/demo/demo-full-flow.sh)
 demo-full:
-	@chmod +x scripts/demo-full-flow.sh
-	@./scripts/demo-full-flow.sh
+	@chmod +x scripts/demo/demo-full-flow.sh
+	@./scripts/demo/demo-full-flow.sh
 
 demo-passback-alert:
-	@chmod +x scripts/demo-passback-alert.sh
-	@./scripts/demo-passback-alert.sh
+	@chmod +x scripts/demo/demo-passback-alert.sh
+	@./scripts/demo/demo-passback-alert.sh
 
 logs:
 	$(COMPOSE) logs -f access-api admin-api aggregation-worker cache-invalidation-worker report-api
@@ -136,16 +140,16 @@ load-shift-change:
 # Optional: seed 90k synthetic employees into ClickHouse (slow; for report/analytics demos)
 LOAD_USER_COUNT ?= 90000
 test-report-cache:
-	@chmod +x scripts/test-report-cache.sh
-	@./scripts/test-report-cache.sh
+	@chmod +x scripts/demo/test-report-cache.sh
+	@./scripts/demo/test-report-cache.sh
 
 benchmark-report-api:
-	@chmod +x scripts/benchmark-report-api.sh
-	@./scripts/benchmark-report-api.sh
+	@chmod +x scripts/demo/benchmark-report-api.sh
+	@./scripts/demo/benchmark-report-api.sh
 
 seed-load-users:
-	@chmod +x scripts/gen-load-users-sql.sh
-	@./scripts/gen-load-users-sql.sh $(LOAD_USER_COUNT) > clickhouse/seed-load-users.sql
+	@chmod +x scripts/utils/gen-load-users-sql.sh
+	@./scripts/utils/gen-load-users-sql.sh $(LOAD_USER_COUNT) > clickhouse/seed-load-users.sql
 	$(COMPOSE) exec -T clickhouse clickhouse-client --password password123 --multiquery < clickhouse/seed-load-users.sql
 	@echo "Seeded $(LOAD_USER_COUNT) load-test employees into ClickHouse"
 

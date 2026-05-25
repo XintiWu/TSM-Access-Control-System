@@ -1,0 +1,48 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: access-control
+  annotations:
+    # 自動向 cert-manager 申請 Let's Encrypt 憑證
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # 若後端使用 WebSocket (如簡單即時推播)，可能需要相關設定
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.your-domain.com
+    secretName: api-tls-secret # cert-manager 會將取得的憑證存入此 Secret
+  rules:
+  - http:
+      paths:
+      - path: /access
+        pathType: Prefix
+        backend:
+          service:
+            name: access-api
+            port:
+              number: 80
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-api
+            port:
+              number: 80
+      - path: /reports
+        pathType: Prefix
+        backend:
+          service:
+            name: report-api
+            port:
+              number: 80
+      - path: /ui
+        pathType: Prefix
+        backend:
+          service:
+            name: report-api
+            port:
+              number: 80

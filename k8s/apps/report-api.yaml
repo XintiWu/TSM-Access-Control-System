@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-api
+  namespace: access-control
+  labels:
+    app: report-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: report-api
+  template:
+    metadata:
+      labels:
+        app: report-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8082"
+    spec:
+      containers:
+      - name: report-api
+        image: asia-east1-docker.pkg.dev/access-api-497314/access-api-repo/report-api:v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8082
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        env:
+        - name: HTTP_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: HTTP_ADDR_REPORT
+        - name: REDIS_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: REDIS_ADDR
+        - name: CLICKHOUSE_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CLICKHOUSE_ADDR
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: CLICKHOUSE_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-api
+  namespace: access-control
+spec:
+  selector:
+    app: report-api
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8082
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: report-api-hpa
+  namespace: access-control
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: report-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75

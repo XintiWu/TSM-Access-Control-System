@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"crypto/tls"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -15,6 +17,13 @@ type EmployeeRepository struct {
 }
 
 func NewEmployeeRepository(chAddr, chUser, chPass string) (*EmployeeRepository, error) {
+	var tlsConfig *tls.Config
+	if strings.Contains(chAddr, ":9440") {
+		tlsConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{chAddr},
 		Auth: clickhouse.Auth{
@@ -23,6 +32,7 @@ func NewEmployeeRepository(chAddr, chUser, chPass string) (*EmployeeRepository, 
 			Password: chPass,
 		},
 		DialTimeout: 5 * time.Second,
+		TLS:         tlsConfig,
 	})
 	if err != nil {
 		return nil, err

@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -15,6 +17,13 @@ type InOutRepository struct {
 }
 
 func NewInOutRepository(chAddr, chUser, chPass string) (*InOutRepository, error) {
+	var tlsConfig *tls.Config
+	if strings.Contains(chAddr, ":9440") {
+		tlsConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{chAddr},
 		Auth: clickhouse.Auth{
@@ -27,6 +36,7 @@ func NewInOutRepository(chAddr, chUser, chPass string) (*InOutRepository, error)
 			"wait_for_async_insert": 1,
 		},
 		DialTimeout: 5 * time.Second,
+		TLS:         tlsConfig,
 	})
 	if err != nil {
 		return nil, err

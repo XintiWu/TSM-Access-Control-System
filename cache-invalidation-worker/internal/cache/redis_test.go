@@ -3,42 +3,45 @@ package cache_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/tsmc/cache-invalidation-worker/internal/cache"
 )
 
-func startRedis(t *testing.T) (addr string, stop func()) {
+// redisAddr returns the address of a live Redis instance.
+// Prefers the REDIS_ADDR env variable (set in CI by docker compose),
+// then falls back to the local default. Skips the test if unreachable.
+func redisAddr(t *testing.T) string {
 	t.Helper()
-	ctx := context.Background()
-	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "redis:7-alpine",
-			ExposedPorts: []string{"6379/tcp"},
-			WaitingFor:   wait.ForLog("Ready to accept connections"),
-		},
-		Started: true,
-	})
-	if err != nil {
-		t.Fatal(err)
+	addr := os.Getenv("REDIS_ADDR")
+	if addr == "" {
+		addr = "localhost:6379"
 	}
-	host, _ := c.Host(ctx)
-	port, _ := c.MappedPort(ctx, "6379")
-	return host + ":" + port.Port(), func() { _ = c.Terminate(ctx) }
+	// Verify connectivity before running; skip instead of fail if unavailable.
+	client := redis.NewClient(&redis.Options{Addr: addr})
+	defer client.Close()
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		t.Skipf("Redis not reachable at %s (%v) — skipping integration test", addr, err)
+	}
+	return addr
 }
 
 func TestSetAndClearDenied(t *testing.T) {
-	addr, stop := startRedis(t)
-	defer stop()
+	addr := redisAddr(t)
 	ctx := context.Background()
 	userID := "22222222-2222-2222-2222-222222222222"
 
 	rc := cache.NewRedisCache(addr)
 	client := redis.NewClient(&redis.Options{Addr: addr})
 	defer client.Close()
+
+	// Clean up before and after to keep tests idempotent.
+	_ = client.Del(ctx, fmt.Sprintf("perm:denied:%s", userID))
+	t.Cleanup(func() {
+		_ = client.Del(ctx, fmt.Sprintf("perm:denied:%s", userID))
+	})
 
 	if err := rc.SetDenied(ctx, userID); err != nil {
 		t.Fatal(err)
