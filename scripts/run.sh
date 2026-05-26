@@ -54,6 +54,7 @@ scripts=(
   "demo-full-flow|Bulk Traffic & Full Flow Demo|Demo|${DEMO_DIR}/demo-full-flow.sh|Generate traffic load, aggregate, query report, and export PDF/CSV"
   "verify-pipeline|End-to-End Persistence Check|Verification|${DEMO_DIR}/verify-pipeline.sh|Verify swipe event reaches ClickHouse DB via Kafka"
   "verify-performance|SLA Targets Validation|Verification|${DEMO_DIR}/verify-performance.sh|Validate p99 swipe < 50ms and p95 reports < 200ms SLA"
+  "perf-viz|Performance Dashboard|Verification|${DEMO_DIR}/perf-viz.sh|Live ASCII dashboard: bar charts, histograms, and SLO gauges for all endpoints"
   "benchmark-report-api|Report API Endpoint Bench|Verification|${DEMO_DIR}/benchmark-report-api.sh|Benchmark p95 latency for report-api endpoints"
   "test-report-cache|Redis Report Caching Check|Verification|${DEMO_DIR}/test-report-cache.sh|Check Report API Redis caching, TTL, and invalidation"
   "seed-redis|Redis Seeding Helper|Helper|${UTILS_DIR}/seed-redis.sh|Initialize Redis with test door heartbeats and card mappings"

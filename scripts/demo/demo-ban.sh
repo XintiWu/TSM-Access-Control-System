@@ -16,7 +16,7 @@ fi
 
 ACCESS_API="${API_URL:-http://localhost:8080}"
 ADMIN_API="${ADMIN_URL:-http://localhost:8081}"
-USER="${DEMO_USER:-22222222-2222-2222-2222-222222222222}"
+USER_ID="${DEMO_USER:-22222222-2222-2222-2222-222222222222}"
 DOOR="${DEMO_DOOR:-11111111-1111-1111-1111-111111111111}"
 WAIT="${BAN_WAIT:-3}"
 
@@ -29,13 +29,13 @@ redis_cmd() {
 }
 
 clear_passback() {
-  redis_cmd DEL "passback:${USER}" >/dev/null || true
+  redis_cmd DEL "passback:${USER_ID}" >/dev/null || true
 }
 
 swipe_json() {
   curl -sf -X POST "${ACCESS_API}/access/swipe" \
     -H "Content-Type: application/json" \
-    -d "{\"userId\":\"${USER}\",\"doorId\":\"${DOOR}\",\"direction\":\"IN\",\"cardUid\":\"CARD001\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+    -d "{\"userId\":\"${USER_ID}\",\"doorId\":\"${DOOR}\",\"direction\":\"IN\",\"cardUid\":\"CARD001\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
 }
 
 expect_swipe() {
@@ -65,8 +65,8 @@ echo
 echo ">>> Swipe before ban (expect ALLOW)"
 expect_swipe "ALLOW"
 
-echo ">>> POST ${ADMIN_API}/admin/employees/${USER}/ban"
-curl -sf -X POST "${ADMIN_API}/admin/employees/${USER}/ban" | jq .
+echo ">>> POST ${ADMIN_API}/admin/employees/${USER_ID}/ban"
+curl -sf -X POST "${ADMIN_API}/admin/employees/${USER_ID}/ban" | jq .
 echo "Waiting ${WAIT}s for cache invalidation worker..."
 sleep "$WAIT"
 echo
@@ -74,8 +74,8 @@ echo
 echo ">>> Swipe after ban (expect DENY / PERMISSION_DENIED)"
 expect_swipe "DENY" "PERMISSION_DENIED"
 
-echo ">>> POST ${ADMIN_API}/admin/employees/${USER}/unban"
-curl -sf -X POST "${ADMIN_API}/admin/employees/${USER}/unban" | jq .
+echo ">>> POST ${ADMIN_API}/admin/employees/${USER_ID}/unban"
+curl -sf -X POST "${ADMIN_API}/admin/employees/${USER_ID}/unban" | jq .
 echo "Waiting ${WAIT}s for cache invalidation worker..."
 sleep "$WAIT"
 echo

@@ -30,11 +30,11 @@ echo
 
 # 1. Fast Path Validation (access-api < 50ms)
 echo "Testing Fast Path (access-api /access/swipe)..."
-# Clear passback state first to avoid anti-passback rule lookup penalties
+# Clear passback state for the test user only (FLUSHDB would nuke live permissions)
 if command -v redis-cli >/dev/null 2>&1; then
-  redis-cli -h "${REDIS_HOST:-localhost}" -p "${REDIS_PORT:-6379}" FLUSHDB >/dev/null 2>&1 || true
+  redis-cli -h "${REDIS_HOST:-localhost}" -p "${REDIS_PORT:-6379}" DEL "passback:22222222-2222-2222-2222-222222222222" >/dev/null 2>&1 || true
 else
-  docker compose exec -T redis redis-cli FLUSHDB >/dev/null 2>&1 || true
+  docker compose exec -T redis redis-cli DEL "passback:22222222-2222-2222-2222-222222222222" >/dev/null 2>&1 || true
 fi
 
 latencies=()

@@ -30,7 +30,8 @@ data:
         jsonData:
           host: jm9s3w1q3z.asia-southeast1.gcp.clickhouse.cloud
           port: 8443
-          protocol: https
+          protocol: http
+          secure: true
           defaultDatabase: access_control
           username: default
           tlsSkipVerify: true

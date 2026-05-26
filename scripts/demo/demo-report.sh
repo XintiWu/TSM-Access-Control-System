@@ -16,7 +16,7 @@ fi
 
 
 REPORT_URL=${REPORT_URL:-http://localhost:8082}
-ACCESS_URL=${ACCESS_URL:-http://localhost:8080}
+ACCESS_URL=${ACCESS_URL:-${API_URL:-http://localhost:8080}}
 EMPLOYEE_ID="22222222-2222-2222-2222-222222222222"
 MANAGER_ID="cccccccc-cccc-cccc-cccc-cccccccccccc"
 CEO_ID="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
@@ -30,8 +30,16 @@ echo "============================================"
 echo "  Report API Demo"
 echo "============================================"
 
+redis_cmd() {
+  if command -v redis-cli >/dev/null 2>&1; then
+    redis-cli -h "${REDIS_HOST:-localhost}" -p "${REDIS_PORT:-6379}" "$@" 2>/dev/null
+  else
+    docker compose exec -T redis redis-cli "$@" 2>/dev/null
+  fi
+}
+
 echo "=== Step 0: Sample swipes ==="
-docker compose exec -T redis redis-cli DEL "passback:${EMPLOYEE_ID}" 2>/dev/null || true
+redis_cmd DEL "passback:${EMPLOYEE_ID}" >/dev/null || true
 curl -sf -X POST "${ACCESS_URL}/access/swipe" \
   -H "Content-Type: application/json" \
   -d "{\"userId\":\"${EMPLOYEE_ID}\",\"doorId\":\"${DOOR_ID}\",\"direction\":\"IN\"}" | jq -r '.decision' || true

@@ -16,7 +16,7 @@ fi
 
 
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
-ACCESS_URL="${ACCESS_URL:-http://localhost:8080}"
+ACCESS_URL="${ACCESS_URL:-${API_URL:-http://localhost:8080}}"
 if command -v redis-cli >/dev/null 2>&1; then
   REDIS="redis-cli -h ${REDIS_HOST:-localhost} -p ${REDIS_PORT:-6379}"
 else

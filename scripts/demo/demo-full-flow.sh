@@ -15,7 +15,7 @@ if [ -n "${REDIS_ADDR:-}" ]; then
 fi
 
 
-API="${API:-http://localhost:8080}"
+API="${API_URL:-${API:-http://localhost:8080}}"
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 TODAY=$(date +%Y-%m-%d)
 MONTH_START=$(date +%Y-%m-01)
@@ -92,8 +92,17 @@ echo "  已送出約 ${total} 次刷卡請求"
 echo ""
 echo ">>> [3/5] 等待 aggregation-worker 寫入 ClickHouse（15s）"
 sleep 15
-EVENTS=$(docker compose exec -T clickhouse clickhouse-client --password ${CLICKHOUSE_PASSWORD:-password123} \
-  --query "SELECT count() FROM access_control.inout_events WHERE toDate(event_time) = today()" 2>/dev/null || echo "?")
+# Query ClickHouse: prefer cloud HTTP interface, fall back to local docker compose
+if [[ -n "${CLICKHOUSE_ADDR:-}" && "${CLICKHOUSE_ADDR}" != *"localhost"* ]]; then
+  CH_HOST="${CLICKHOUSE_ADDR%:*}"
+  CH_PORT="${CLICKHOUSE_ADDR#*:}"
+  EVENTS=$(curl -sf --max-time 10 \
+    "https://${CLICKHOUSE_ADDR}/?query=SELECT+count()+FROM+access_control.inout_events+WHERE+toDate(event_time)%3Dtoday()" \
+    -u "${CLICKHOUSE_USER:-default}:${CLICKHOUSE_PASSWORD:-}" 2>/dev/null || echo "?")
+else
+  EVENTS=$(docker compose exec -T clickhouse clickhouse-client --password "${CLICKHOUSE_PASSWORD:-password123}" \
+    --query "SELECT count() FROM access_control.inout_events WHERE toDate(event_time) = today()" 2>/dev/null || echo "?")
+fi
 echo "  今日 inout_events 筆數: ${EVENTS}"
 
 echo ""
@@ -128,6 +137,6 @@ echo "  PDF: report_demo.pdf ($(wc -c < ./report_demo.pdf | tr -d ' ') bytes)"
 echo ""
 echo "============================================"
 echo "  完成"
-echo "  - Grafana 熱點/考勤: http://localhost:3001 → Access Analytics"
+echo "  - Grafana 熱點/考勤: ${GRAFANA_URL:-http://localhost:3001} → Access Analytics"
 echo "  - Prometheus 告警指標: report_passback_deny_1m_max"
 echo "============================================"
