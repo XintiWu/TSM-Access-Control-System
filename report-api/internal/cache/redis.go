@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -11,13 +12,23 @@ const reportCacheTTL = 5 * time.Minute
 
 // ReportCache provides Redis-based caching for pre-computed report responses.
 type ReportCache struct {
-	client *redis.Client
+	client redis.UniversalClient
 }
 
 // NewReportCache creates a new Redis-backed report cache.
 func NewReportCache(addr string) *ReportCache {
+	var client redis.UniversalClient
+	if os.Getenv("REDIS_CLUSTER") == "true" {
+		client = redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs: []string{addr},
+		})
+	} else {
+		client = redis.NewClient(&redis.Options{
+			Addr: addr,
+		})
+	}
 	return &ReportCache{
-		client: redis.NewClient(&redis.Options{Addr: addr}),
+		client: client,
 	}
 }
 

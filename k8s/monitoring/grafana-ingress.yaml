@@ -1,0 +1,15 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-https-ingress
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: gce
+    networking.gke.io/managed-certificates: grafana-ssl-cert-v2
+    kubernetes.io/ingress.allow-http: "false"
+spec:
+  defaultBackend:
+    service:
+      name: grafana-oss-service
+      port:
+        number: 80

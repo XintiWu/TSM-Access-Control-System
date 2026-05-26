@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -11,12 +12,22 @@ import (
 const deniedTTL = 24 * time.Hour
 
 type RedisCache struct {
-	client *redis.Client
+	client redis.UniversalClient
 }
 
 func NewRedisCache(addr string) *RedisCache {
+	var client redis.UniversalClient
+	if os.Getenv("REDIS_CLUSTER") == "true" {
+		client = redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs: []string{addr},
+		})
+	} else {
+		client = redis.NewClient(&redis.Options{
+			Addr: addr,
+		})
+	}
 	return &RedisCache{
-		client: redis.NewClient(&redis.Options{Addr: addr}),
+		client: client,
 	}
 }
 

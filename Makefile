@@ -1,4 +1,4 @@
-.PHONY: up down build seed migrate demo demo-ban demo-report demo-full demo-passback-alert swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo load-shift-change shift-change-prep seed-load-users test-report-cache benchmark-report-api
+.PHONY: up down build seed migrate demo demo-ban demo-report demo-full demo-passback-alert swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline verify-pipeline hooks load-demo load-shift-change shift-change-prep seed-load-users test-report-cache benchmark-report-api schema-ch-cloud
 
 # Install repo git hooks (strips Cursor Co-authored-by from commits)
 hooks:
@@ -50,6 +50,16 @@ seed-ch:
 	@test -f clickhouse/seed.sql
 	$(COMPOSE) exec -T clickhouse clickhouse-client --password password123 --multiquery < clickhouse/seed.sql
 	@echo "ClickHouse seed applied"
+
+# Variables for Cloud ClickHouse
+CH_CLOUD_URL ?= https://default:hW479.LWm~rYF@jm9s3w1q3z.asia-southeast1.gcp.clickhouse.cloud:8443
+
+schema-ch-cloud:
+	@chmod +x scripts/utils/apply-cloud-ch.sh
+	./scripts/utils/apply-cloud-ch.sh clickhouse/init.sql "$(CH_CLOUD_URL)"
+	./scripts/utils/apply-cloud-ch.sh clickhouse/migrate-analytics.sql "$(CH_CLOUD_URL)"
+	./scripts/utils/apply-cloud-ch.sh clickhouse/seed.sql "$(CH_CLOUD_URL)"
+	@echo "Cloud ClickHouse schema and seed applied"
 
 seed:
 	@chmod +x scripts/utils/seed-redis.sh scripts/demo/demo.sh scripts/demo/demo-ban.sh scripts/demo/verify-pipeline.sh

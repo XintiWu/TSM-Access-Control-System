@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # 在 GCP GKE 上會自動使用預設的 Standard-SSD 或 balanced 雲端硬碟儲存
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-oss
+  namespace: monitoring
+  labels:
+    app: grafana-oss
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana-oss
+  template:
+    metadata:
+      labels:
+        app: grafana-oss
+    spec:
+      securityContext:
+        fsGroup: 472
+        runAsUser: 472
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.0.0
+          ports:
+            - containerPort: 3000
+              name: web
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: "admin"
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: "admin123" # 建議正式環境改為 Secret 引用
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_INSTALL_PLUGINS
+              value: "grafana-clickhouse-datasource"
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-clickhouse-secret
+                  key: CLICKHOUSE_PASSWORD
+          volumeMounts:
+            - mountPath: /var/lib/grafana
+              name: grafana-storage
+            - mountPath: /etc/grafana/provisioning/datasources
+              name: grafana-datasources
+              readOnly: true
+            - mountPath: /etc/grafana/provisioning/dashboards
+              name: grafana-dashboards-provider
+              readOnly: true
+            - mountPath: /var/lib/grafana-dashboards
+              name: grafana-dashboards-json
+              readOnly: true
+      volumes:
+        - name: grafana-storage
+          persistentVolumeClaim:
+            claimName: grafana-pvc
+        - name: grafana-datasources
+          configMap:
+            name: grafana-datasources
+        - name: grafana-dashboards-provider
+          configMap:
+            name: grafana-dashboards-provider
+        - name: grafana-dashboards-json
+          configMap:
+            name: grafana-dashboards-json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-oss-service
+  namespace: monitoring
+spec:
+  selector:
+    app: grafana-oss
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP

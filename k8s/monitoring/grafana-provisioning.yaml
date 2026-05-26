@@ -1,0 +1,637 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-clickhouse-secret
+  namespace: monitoring
+type: Opaque
+stringData:
+  CLICKHOUSE_PASSWORD: "hW479.LWm~rYF"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://frontend.monitoring.svc.cluster.local:9090
+        isDefault: true
+        editable: false
+      - name: ClickHouse-Analytics
+        type: grafana-clickhouse-datasource
+        uid: clickhouse
+        access: proxy
+        jsonData:
+          host: jm9s3w1q3z.asia-southeast1.gcp.clickhouse.cloud
+          port: 8443
+          protocol: https
+          defaultDatabase: access_control
+          username: default
+          tlsSkipVerify: true
+        secureJsonData:
+          password: ${CLICKHOUSE_PASSWORD}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-provider
+  namespace: monitoring
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: 'default'
+        orgId: 1
+        folder: 'Access Control'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana-dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-json
+  namespace: monitoring
+data:
+  access-control.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "id": 1,
+          "type": "text",
+          "title": "",
+          "gridPos": {
+            "h": 3,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "## Shift Change Monitor\n\n監控換班尖峰刷卡流量。產生流量：`make load-shift-change` (90k 不同人 IN)\n\n| 服務 | URL |\n|------|-----|\n| Grafana | http://localhost:3001 (admin/admin) |\n| Prometheus | http://localhost:9090 |\n| Access API metrics | http://localhost:8080/metrics |\n"
+          }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "刷卡 QPS",
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 0,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "access_api_qps",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 500
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "p99 延遲 (ms)",
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 8,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "access_api_p99_latency_ms",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 40
+                  },
+                  {
+                    "color": "red",
+                    "value": 50
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "ALLOW 比例 (%)",
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 16,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(access_api_swipe_total{decision=\"ALLOW\"}[5m])) / sum(rate(access_api_swipe_total[5m])) * 100",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "QPS 趨勢",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 7
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "access_api_qps",
+              "refId": "A",
+              "legendFormat": "QPS"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "p50 / p95 / p99 延遲 (ms)",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 7
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(access_api_swipe_duration_ms_bucket[5m])) by (le))",
+              "refId": "A",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(access_api_swipe_duration_ms_bucket[5m])) by (le))",
+              "refId": "B",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(access_api_swipe_duration_ms_bucket[5m])) by (le))",
+              "refId": "C",
+              "legendFormat": "p99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "ALLOW vs DENY QPS",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 15
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(access_api_swipe_total{decision=\"ALLOW\"}[1m]))",
+              "refId": "A",
+              "legendFormat": "ALLOW"
+            },
+            {
+              "expr": "sum(rate(access_api_swipe_total{decision=\"DENY\"}[1m]))",
+              "refId": "B",
+              "legendFormat": "DENY"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 8,
+          "type": "timeseries",
+          "title": "DENY 原因 QPS",
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 12,
+            "y": 15
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum by (reason) (rate(access_api_swipe_total{decision=\"DENY\"}[5m]))",
+              "refId": "A",
+              "legendFormat": "{{reason}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 9,
+          "type": "piechart",
+          "title": "DENY 原因占比",
+          "gridPos": {
+            "h": 8,
+            "w": 4,
+            "x": 20,
+            "y": 15
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum by (reason) (increase(access_api_swipe_total{decision=\"DENY\"}[5m]))",
+              "refId": "A",
+              "legendFormat": "{{reason}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            }
+          }
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 39,
+      "tags": [
+        "access-control",
+        "shift-change"
+      ],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-15m",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Access Control — Shift Change Monitor",
+      "uid": "access-control-shift",
+      "version": 1
+    }
+  access-analytics.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "liveNow": true,
+      "panels": [
+        {
+          "id": 10,
+          "type": "text",
+          "title": "",
+          "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+          "options": {
+            "mode": "markdown",
+            "content": "## Access Analytics\n\n即時門禁熱點、考勤趨勢（平均工時 / 遲到率）、反潛回異常告警。\n\n| 資料源 | 用途 |\n|--------|------|\n| ClickHouse | 門禁流量、考勤 |\n| Prometheus | `report_passback_deny_1m_max` 告警 |\n\n遲到定義：當日第一筆 ALLOW IN 晚於 **09:00 UTC**。"
+          }
+        },
+        {
+          "id": 11,
+          "type": "barchart",
+          "title": "即時熱點圖 — 各門刷卡量（近 1 小時）",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 3 },
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+          "targets": [
+            {
+              "queryType": "sql",
+              "rawSql": "SELECT if(d.name = '', toString(e.door_id), d.name) AS door, count() AS swipes FROM access_control.inout_events AS e LEFT JOIN access_control.door AS d ON e.door_id = d.id WHERE e.event_time >= now() - INTERVAL 1 HOUR GROUP BY door ORDER BY swipes DESC",
+              "refId": "A",
+              "format": 1
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "unit": "short"
+            }
+          },
+          "options": {
+            "orientation": "horizontal",
+            "legend": { "display": false },
+            "barWidth": 0.8
+          }
+        },
+        {
+          "id": 12,
+          "type": "stat",
+          "title": "反潛回異常（近 1 分鐘最高門禁次數）",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 3 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "expr": "report_passback_deny_1m_max",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 25 },
+                  { "color": "red", "value": 50 }
+                ]
+              },
+              "unit": "short"
+            }
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background"
+          }
+        },
+        {
+          "id": 13,
+          "type": "timeseries",
+          "title": "考勤統計 — 平均工時（本月每日）",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+          "targets": [
+            {
+              "queryType": "sql",
+              "rawSql": "SELECT toDateTime(day) AS time, avg(daily_hours) AS avg_hours FROM ( SELECT employee_id, toDate(event_time) AS day, multiIf( minIf(event_time, direction = 'IN') > toDateTime64(0, 3, 'UTC') AND maxIf(event_time, direction = 'OUT') > toDateTime64(0, 3, 'UTC'), dateDiff('second', minIf(event_time, direction = 'IN'), maxIf(event_time, direction = 'OUT')) / 3600.0, NULL ) AS daily_hours FROM access_control.inout_events WHERE status = 'ALLOW' AND event_time >= toStartOfMonth(today()) GROUP BY employee_id, day ) GROUP BY day ORDER BY time",
+              "refId": "A",
+              "format": 0
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "h",
+              "custom": { "drawStyle": "line", "lineWidth": 2, "showPoints": "auto" }
+            }
+          }
+        },
+        {
+          "id": 14,
+          "type": "timeseries",
+          "title": "考勤統計 — 遲到率（本月每日）",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+          "targets": [
+            {
+              "queryType": "sql",
+              "rawSql": "SELECT toDateTime(day) AS time, if(headcount > 0, late_count / headcount, 0) AS late_rate FROM ( SELECT day, count() AS headcount, sum(is_late) AS late_count FROM ( SELECT employee_id, toDate(event_time) AS day, if( minIf(event_time, direction = 'IN' AND status = 'ALLOW') > toDateTime64(concat(toString(toDate(event_time)), ' 09:00:00'), 3, 'UTC'), 1, 0 ) AS is_late FROM access_control.inout_events WHERE status = 'ALLOW' AND event_time >= toStartOfMonth(today()) GROUP BY employee_id, day ) GROUP BY day ) ORDER BY time",
+              "refId": "A",
+              "format": 0
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "max": 1,
+              "custom": { "drawStyle": "line", "lineWidth": 2, "showPoints": "auto" }
+            }
+          }
+        },
+        {
+          "id": 15,
+          "type": "timeseries",
+          "title": "各門反潛回 DENY（Prometheus / 每 15s 輪詢 ClickHouse）",
+          "gridPos": { "h": 7, "w": 24, "x": 0, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "expr": "report_passback_deny_1m",
+              "legendFormat": "{{door_name}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "drawStyle": "line", "lineWidth": 1 }
+            }
+          }
+        }
+      ],
+      "refresh": "15s",
+      "schemaVersion": 39,
+      "tags": ["access-control", "reports"],
+      "time": { "from": "now-6h", "to": "now" },
+      "timezone": "browser",
+      "title": "Access Analytics",
+      "uid": "access-analytics",
+      "version": 1
+    }

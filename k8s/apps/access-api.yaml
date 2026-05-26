@@ -43,6 +43,11 @@ spec:
             configMapKeyRef:
               name: app-config
               key: REDIS_ADDR
+        - name: REDIS_CLUSTER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: REDIS_CLUSTER
         - name: KAFKA_BROKERS
           valueFrom:
             configMapKeyRef:
@@ -53,6 +58,21 @@ spec:
             configMapKeyRef:
               name: app-config
               key: KAFKA_TOPIC_INOUT
+        - name: CLICKHOUSE_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CLICKHOUSE_ADDR
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: CLICKHOUSE_PASSWORD
         readinessProbe:
           httpGet:
             path: /health

@@ -43,6 +43,11 @@ spec:
             configMapKeyRef:
               name: app-config
               key: REDIS_ADDR
+        - name: REDIS_CLUSTER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: REDIS_CLUSTER
         - name: CLICKHOUSE_ADDR
           valueFrom:
             configMapKeyRef:

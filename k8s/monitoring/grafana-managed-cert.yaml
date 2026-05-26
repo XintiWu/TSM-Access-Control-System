@@ -1,0 +1,8 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: grafana-ssl-cert-v2
+  namespace: monitoring
+spec:
+  domains:
+    - 8.233.250.204.nip.io

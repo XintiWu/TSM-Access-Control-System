@@ -1,0 +1,15 @@
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: access-control-pod-scraper
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      # ⚠️ Make sure your application deployment has this exact label attached to its pods
+      app: access-control-backend
+  endpoints:
+  - port: 8080        # The network port your application exposes metrics on
+    path: /metrics    # The endpoint where your code outputs Prometheus metrics
+    interval: 15s     # Scrape frequency
+    

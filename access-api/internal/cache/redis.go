@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,17 +26,28 @@ var (
 )
 
 type RedisCache struct {
-	client *redis.Client
+	client redis.UniversalClient
 }
 
 func NewRedisCache(addr string) *RedisCache {
-	return &RedisCache{
-		client: redis.NewClient(&redis.Options{
+	var client redis.UniversalClient
+	if os.Getenv("REDIS_CLUSTER") == "true" {
+		client = redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs:         []string{addr},
+			PoolSize:      128,
+			MinIdleConns:  32,
+			PoolTimeout:   2 * time.Second,
+		})
+	} else {
+		client = redis.NewClient(&redis.Options{
 			Addr:         addr,
 			PoolSize:     128,
 			MinIdleConns: 32,
 			PoolTimeout:  2 * time.Second,
-		}),
+		})
+	}
+	return &RedisCache{
+		client: client,
 	}
 }
 
