@@ -232,6 +232,7 @@ Ban flow does **not** pre-seed `perm:denied` in Redis—use `make ban` or admin-
 ```bash
 curl -X POST http://localhost:8080/access/swipe \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-api-key-2026" \
   -d '{
     "userId": "22222222-2222-2222-2222-222222222222",
     "doorId": "11111111-1111-1111-1111-111111111111",
@@ -239,6 +240,7 @@ curl -X POST http://localhost:8080/access/swipe \
     "cardUid": "CARD001",
     "timestamp": "2026-05-19T08:00:00Z"
   }'
+
 ```
 
 ### Endpoints
@@ -325,31 +327,32 @@ TODAY=$(date +%Y-%m-%d)
 MONTH=$(date +%Y-%m-01)
 
 # Department report (JSON)
-curl -s -H "X-User-ID: $MANAGER" \
+curl -s -H "X-User-ID: $MANAGER" -H "X-API-Key: dev-api-key-2026" \
   "http://localhost:8082/reports/department?orgUnitId=$TEAM&startDate=$MONTH&endDate=$TODAY&granularity=daily" | jq .
 
 # Door heatmap (last 60 minutes)
-curl -s -H "X-User-ID: $MANAGER" \
+curl -s -H "X-User-ID: $MANAGER" -H "X-API-Key: dev-api-key-2026" \
   "http://localhost:8082/reports/analytics/door-heatmap?minutes=60" | jq .
 
 # Attendance trends
-curl -s -H "X-User-ID: $MANAGER" \
+curl -s -H "X-User-ID: $MANAGER" -H "X-API-Key: dev-api-key-2026" \
   "http://localhost:8082/reports/analytics/attendance-trends?orgUnitId=$TEAM&startDate=$MONTH&endDate=$TODAY&granularity=daily" | jq .
 
 # Visual department PDF (metadata, KPIs, detail table, charts)
-curl -s -H "X-User-ID: $MANAGER" \
+curl -s -H "X-User-ID: $MANAGER" -H "X-API-Key: dev-api-key-2026" \
   "http://localhost:8082/reports/export?orgUnitId=$TEAM&startDate=$TODAY&endDate=$TODAY&format=pdf&type=department" \
   -o my_report.pdf
 
 # CEO full-site PDF (executive overview when exporting corp root)
-curl -s -H "X-User-ID: $CEO" \
+curl -s -H "X-User-ID: $CEO" -H "X-API-Key: dev-api-key-2026" \
   "http://localhost:8082/reports/export?orgUnitId=$CORP&startDate=$TODAY&endDate=$TODAY&format=pdf&type=department" \
   -o ceo_report.pdf
 
 # CSV event export for org subtree
-curl -s -H "X-User-ID: $MANAGER" \
+curl -s -H "X-User-ID: $MANAGER" -H "X-API-Key: dev-api-key-2026" \
   "http://localhost:8082/reports/export?orgUnitId=$TEAM&startDate=$TODAY&endDate=$TODAY&format=csv&type=events" \
   -o events.csv
+
 ```
 
 ### Metrics and rules
@@ -482,6 +485,42 @@ make seed-load-users LOAD_USER_COUNT=90000
 
 ---
 
+## Security & Middleware
+
+To protect the APIs and ensure system reliability, the following middleware components are applied to `access-api`, `admin-api`, and `report-api`:
+
+### 1. API Key Authentication
+All external endpoints (except `/health`, `/metrics`, and `/ui/` dashboard assets) require a valid API Key passed via the `X-API-Key` HTTP header. 
+* **Header Format:** `X-API-Key: <your-api-key>`
+* **Configuration:** Controlled by the `API_KEY` environment variable (defaults to `dev-api-key-2026` for development).
+* **Unauthorized Access:** Requests without a valid key return `401 Unauthorized`.
+
+### 2. Per-IP Rate Limiting
+A local in-memory token bucket rate-limiter prevents brute-force attempts and controls load spike limits per client IP.
+* **Configuration:** Configured via `RATE_LIMIT_RPS` env var.
+* **Default Limits:**
+  * `access-api`: 100 RPS
+  * `report-api`: 50 RPS
+  * `admin-api`: 20 RPS
+* **Rate Limit Exceeded:** Returns `429 Too Many Requests`.
+
+---
+
+## GCP & Kubernetes (GKE) Deployment
+
+The microservices are fully cloud-ready and deployed to **Google Cloud Platform (GCP)**.
+
+### 1. Container Registries
+Build targets are containerized for `linux/amd64` architectures and hosted in Google Artifact Registry:
+* Registry Path: `asia-east1-docker.pkg.dev/access-api-497314/access-api-repo/<service-name>:v1`
+
+### 2. GKE Autopilot & Workload Identity
+* **Namespace:** `access-control`
+* **Secret Management:** Leverages GCP Secret Manager coupled with Kubernetes `ExternalSecret` and Workload Identity Service Accounts (`secret-reader-sa`) to securely synchronize passwords (like ClickHouse Cloud credentials).
+* **Deployment Strategies:** Configured with `Recreate` deployment strategy in GKE Autopilot to coordinate clean updates within constraints.
+
+---
+
 ## Repository layout
 
 ```
@@ -495,10 +534,12 @@ clickhouse/
   init.sql               # Core schema + MVs
   migrate-analytics.sql  # Door table, traffic MV, analytics extras
   seed.sql               # Demo org, employees, doors (single-line INSERTs)
+docs/                    # Technical spec, SLO targets, operations runbook
 monitoring/              # Prometheus, Grafana, dashboards, alerts
 scripts/                 # demo/ and utils/ subdirectories containing shell scripts
 docker-compose.yml
 Makefile
+
 ```
 
 ---
