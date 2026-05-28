@@ -16,6 +16,7 @@ import (
 	"github.com/tsmc/report-api/internal/export"
 	"github.com/tsmc/report-api/internal/handler"
 	"github.com/tsmc/report-api/internal/metrics"
+	"github.com/tsmc/report-api/internal/middleware"
 	"github.com/tsmc/report-api/internal/repository"
 	"github.com/tsmc/report-api/internal/service"
 )
@@ -72,6 +73,10 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger())
+	r.Use(middleware.APIKeyAuth(cfg.APIKey))
+	if cfg.RateLimitRPS > 0 {
+		r.Use(middleware.RateLimit(cfg.RateLimitRPS))
+	}
 
 	// Interactive charts UI (department / heatmap / attendance / personal)
 	r.Static("/ui", "./report-ui")

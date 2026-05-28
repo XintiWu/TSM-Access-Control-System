@@ -7,6 +7,8 @@ metadata:
     app: admin-api
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: admin-api
@@ -27,8 +29,8 @@ spec:
         - containerPort: 8081
         resources:
           requests:
-            cpu: 50m
-            memory: 64Mi
+            cpu: 10m
+            memory: 32Mi
           limits:
             cpu: 200m
             memory: 128Mi
@@ -63,6 +65,17 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: CLICKHOUSE_PASSWORD
+        - name: API_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: API_KEY
+        - name: RATE_LIMIT_RPS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: RATE_LIMIT_RPS_ADMIN
+
 ---
 apiVersion: v1
 kind: Service

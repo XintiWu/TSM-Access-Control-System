@@ -6,7 +6,9 @@ metadata:
   labels:
     app: report-api
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: report-api
@@ -27,8 +29,8 @@ spec:
         - containerPort: 8082
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 10m
+            memory: 32Mi
           limits:
             cpu: 500m
             memory: 512Mi
@@ -63,6 +65,17 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: CLICKHOUSE_PASSWORD
+        - name: API_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: API_KEY
+        - name: RATE_LIMIT_RPS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: RATE_LIMIT_RPS_REPORT
+
 ---
 apiVersion: v1
 kind: Service
@@ -87,7 +100,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: report-api
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 10
   metrics:
   - type: Resource

@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -12,6 +13,8 @@ type Config struct {
 	ClickHousePass   string
 	KafkaBrokers     []string
 	KafkaTopic       string
+	APIKey           string // optional — enables X-API-Key authentication
+	RateLimitRPS     int    // per-IP rate limit (requests per second); 0 = disabled
 }
 
 func Load() Config {
@@ -36,6 +39,8 @@ func Load() Config {
 	if topic == "" {
 		topic = "permission-events"
 	}
+	apiKey := os.Getenv("API_KEY")
+	rateLimitRPS, _ := strconv.Atoi(os.Getenv("RATE_LIMIT_RPS"))
 	return Config{
 		HTTPAddr:       addr,
 		ClickHouseAddr: chAddr,
@@ -43,5 +48,8 @@ func Load() Config {
 		ClickHousePass: chPass,
 		KafkaBrokers:   strings.Split(brokers, ","),
 		KafkaTopic:     topic,
+		APIKey:         apiKey,
+		RateLimitRPS:   rateLimitRPS,
 	}
 }
+

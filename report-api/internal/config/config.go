@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 // Config holds all configuration for the report-api service.
 type Config struct {
@@ -10,6 +13,8 @@ type Config struct {
 	ClickHouseUser string
 	ClickHousePass string
 	ExportDir      string
+	APIKey         string // optional — enables X-API-Key authentication
+	RateLimitRPS   int    // per-IP rate limit (requests per second); 0 = disabled
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -35,6 +40,8 @@ func Load() Config {
 	if exportDir == "" {
 		exportDir = "/app/exports"
 	}
+	apiKey := os.Getenv("API_KEY")
+	rateLimitRPS, _ := strconv.Atoi(os.Getenv("RATE_LIMIT_RPS"))
 	return Config{
 		HTTPAddr:       addr,
 		RedisAddr:      redis,
@@ -42,5 +49,8 @@ func Load() Config {
 		ClickHouseUser: chUser,
 		ClickHousePass: chPass,
 		ExportDir:      exportDir,
+		APIKey:         apiKey,
+		RateLimitRPS:   rateLimitRPS,
 	}
 }
+

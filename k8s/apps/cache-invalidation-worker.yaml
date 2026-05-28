@@ -7,6 +7,8 @@ metadata:
     app: cache-invalidation-worker
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: cache-invalidation-worker
@@ -21,8 +23,8 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            cpu: 50m
-            memory: 64Mi
+            cpu: 10m
+            memory: 32Mi
           limits:
             cpu: 200m
             memory: 128Mi

@@ -73,9 +73,9 @@ up:
 
 init-kafka-topics:
 	$(COMPOSE) exec kafka /opt/kafka/bin/kafka-topics.sh --create --if-not-exists \
-		--bootstrap-server kafka:9092 --topic inout-events --partitions 1 --replication-factor 1
+		--bootstrap-server kafka:9092 --topic inout-events --partitions 3 --replication-factor 1
 	$(COMPOSE) exec kafka /opt/kafka/bin/kafka-topics.sh --create --if-not-exists \
-		--bootstrap-server kafka:9092 --topic permission-events --partitions 1 --replication-factor 1
+		--bootstrap-server kafka:9092 --topic permission-events --partitions 3 --replication-factor 1
 
 down:
 	$(COMPOSE) down -v

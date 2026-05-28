@@ -66,6 +66,8 @@ services:
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: password123
       OUTBOX_DIR: /data/outbox
+      API_KEY: dev-api-key-2026
+      RATE_LIMIT_RPS: 100
     volumes:
       - ./data/outbox:/data/outbox
     depends_on:
@@ -106,6 +108,8 @@ services:
       CLICKHOUSE_PASSWORD: password123
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: permission-events
+      API_KEY: dev-api-key-2026
+      RATE_LIMIT_RPS: 20
     depends_on:
       kafka:
         condition: service_healthy
@@ -140,6 +144,8 @@ services:
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: password123
       EXPORT_DIR: /app/exports
+      API_KEY: dev-api-key-2026
+      RATE_LIMIT_RPS: 50
     volumes:
       - ./exports:/app/exports
     depends_on:

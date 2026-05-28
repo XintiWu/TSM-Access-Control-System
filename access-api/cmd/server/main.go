@@ -14,6 +14,7 @@ import (
 	"github.com/tsmc/access-api/internal/cache"
 	"github.com/tsmc/access-api/internal/config"
 	"github.com/tsmc/access-api/internal/handler"
+	"github.com/tsmc/access-api/internal/middleware"
 	"github.com/tsmc/access-api/internal/queue"
 	"github.com/tsmc/access-api/internal/repository"
 	"github.com/tsmc/access-api/internal/service"
@@ -64,6 +65,10 @@ func main() {
 	r := gin.New()
 	// Recovery only on hot path — gin.Logger adds I/O latency under shift-change load.
 	r.Use(gin.Recovery())
+	r.Use(middleware.APIKeyAuth(cfg.APIKey))
+	if cfg.RateLimitRPS > 0 {
+		r.Use(middleware.RateLimit(cfg.RateLimitRPS))
+	}
 
 	r.GET("/health", func(c *gin.Context) {
 		if err := redisCache.Ping(c.Request.Context()); err != nil {

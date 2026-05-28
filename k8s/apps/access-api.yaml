@@ -7,6 +7,8 @@ metadata:
     app: access-api
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: access-api
@@ -27,8 +29,8 @@ spec:
         - containerPort: 8080
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 10m
+            memory: 32Mi
           limits:
             cpu: 500m
             memory: 256Mi
@@ -73,6 +75,17 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: CLICKHOUSE_PASSWORD
+        - name: API_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: API_KEY
+        - name: RATE_LIMIT_RPS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: RATE_LIMIT_RPS_ACCESS
+
         readinessProbe:
           httpGet:
             path: /health

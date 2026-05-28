@@ -6,7 +6,9 @@ metadata:
   labels:
     app: aggregation-worker
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: aggregation-worker
@@ -21,8 +23,8 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 10m
+            memory: 32Mi
           limits:
             cpu: 500m
             memory: 512Mi

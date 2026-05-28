@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +15,8 @@ type Config struct {
 	ClickHouseAddr   string // optional — enables fallback when Redis is down
 	ClickHouseUser   string
 	ClickHousePass   string
+	APIKey           string // optional — enables X-API-Key authentication
+	RateLimitRPS     int    // per-IP rate limit (requests per second); 0 = disabled
 }
 
 func Load() Config {
@@ -43,6 +46,8 @@ func Load() Config {
 	if outboxDir == "" {
 		outboxDir = "/data/outbox"
 	}
+	apiKey := os.Getenv("API_KEY")
+	rateLimitRPS, _ := strconv.Atoi(os.Getenv("RATE_LIMIT_RPS"))
 	return Config{
 		HTTPAddr:       addr,
 		RedisAddr:      redis,
@@ -52,5 +57,7 @@ func Load() Config {
 		ClickHouseAddr: chAddr,
 		ClickHouseUser: chUser,
 		ClickHousePass: chPass,
+		APIKey:         apiKey,
+		RateLimitRPS:   rateLimitRPS,
 	}
 }

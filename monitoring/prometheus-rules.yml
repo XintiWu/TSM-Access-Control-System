@@ -18,3 +18,42 @@ groups:
         annotations:
           summary: "Anti-passback spike: {{ $value }} denies in 1 minute (max per door)"
           description: "Investigate door tailgating or badge sharing. Grafana dashboard Access Analytics."
+
+  - name: availability_alerts
+    interval: 15s
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(access_api_requests_total{status=~"5.."}[2m])) / sum(rate(access_api_requests_total[2m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API Error Rate: >5% 5xx errors"
+          description: "access-api error rate is {{ $value | humanizePercentage }} for 2 minutes."
+
+      - alert: HighLatency
+        expr: access_api_p99_latency_ms > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Access API Latency: p99 > 50ms"
+          description: "Latency SLA violation: {{ $value }}ms. Check Redis or DB load."
+
+      - alert: ServiceDown
+        expr: up{job="access-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "access-api is DOWN"
+          description: "Prometheus cannot scrape access-api. Pods may be crash-looping."
+
+      - alert: HighFallbackRate
+        expr: rate(access_api_fallback_total[1m]) * 60 > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Database Fallback Rate"
+          description: "Redis may be down or unreachable. Fallback rate: {{ $value }} req/min."
