@@ -126,6 +126,8 @@ jobs:
 
       # 4. 執行整合測試 (Integration Tests)
       - name: Run E2E Integration Tests
+        env:
+          CH_DSN: clickhouse://default:password123@127.0.0.1:9000/access_control
         run: |
           make test-e2e-pipeline
 
