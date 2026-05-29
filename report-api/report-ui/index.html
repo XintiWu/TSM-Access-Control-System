@@ -453,7 +453,7 @@
     Chart.defaults.font.family = "'Inter', sans-serif";
     Chart.defaults.scale.grid.display = false;
     Chart.defaults.scale.border.display = false;
-    Chart.defaults.elements.line.tension = 0.4;
+    Chart.defaults.elements.line.tension = 0;
     Chart.defaults.elements.line.borderWidth = 2.5;
     Chart.defaults.elements.point.radius = 0;
     Chart.defaults.elements.point.hoverRadius = 6;
@@ -551,7 +551,12 @@
     async function api(path) {
       if (!currentUser) return null;
       try {
-        const res = await fetch(`${API}${path}`, { headers: { 'X-User-ID': currentUser.userId } });
+        const res = await fetch(`${API}${path}`, { 
+          headers: { 
+            'X-User-ID': currentUser.userId,
+            'X-API-Key': 'dev-api-key-2026'
+          } 
+        });
         const text = await res.text();
         if (!res.ok) return {};
         return JSON.parse(text);
@@ -845,7 +850,12 @@
     async function downloadReport(url, fallbackFilename) {
       if (!currentUser) return;
       try {
-        const res = await fetch(url, { headers: { 'X-User-ID': currentUser.userId } });
+        const res = await fetch(url, { 
+          headers: { 
+            'X-User-ID': currentUser.userId,
+            'X-API-Key': 'dev-api-key-2026'
+          } 
+        });
         if (!res.ok) {
           alert('匯出失敗 / Export failed!');
           return;
