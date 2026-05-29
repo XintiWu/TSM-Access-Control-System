@@ -12,25 +12,28 @@ func init() {
 	gin.SetMode(gin.TestMode)
 }
 
-func setupRouter(apiKey string) *gin.Engine {
+func setupAPIKeyRouter(apiKey string, extraBypass ...string) *gin.Engine {
 	r := gin.New()
-	r.Use(APIKeyAuth(apiKey))
+	r.Use(APIKeyAuth(apiKey, extraBypass...))
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	r.GET("/metrics", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
-	r.GET("/admin/users", func(c *gin.Context) {
+	r.GET("/ui/dashboard", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	r.GET("/reports/personal", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	return r
 }
 
 func TestAPIKeyAuth_Disabled(t *testing.T) {
-	r := setupRouter("")
+	r := setupAPIKeyRouter("")
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
+	req := httptest.NewRequest(http.MethodGet, "/reports/personal", nil)
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 when auth disabled, got %d", w.Code)
@@ -38,10 +41,10 @@ func TestAPIKeyAuth_Disabled(t *testing.T) {
 }
 
 func TestAPIKeyAuth_ValidKey(t *testing.T) {
-	r := setupRouter("test-key-admin")
+	r := setupAPIKeyRouter("test-key")
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
-	req.Header.Set("X-API-Key", "test-key-admin")
+	req := httptest.NewRequest(http.MethodGet, "/reports/personal", nil)
+	req.Header.Set("X-API-Key", "test-key")
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 with valid key, got %d", w.Code)
@@ -49,9 +52,9 @@ func TestAPIKeyAuth_ValidKey(t *testing.T) {
 }
 
 func TestAPIKeyAuth_InvalidKey(t *testing.T) {
-	r := setupRouter("test-key-admin")
+	r := setupAPIKeyRouter("test-key")
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
+	req := httptest.NewRequest(http.MethodGet, "/reports/personal", nil)
 	req.Header.Set("X-API-Key", "wrong-key")
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
@@ -60,9 +63,9 @@ func TestAPIKeyAuth_InvalidKey(t *testing.T) {
 }
 
 func TestAPIKeyAuth_MissingKey(t *testing.T) {
-	r := setupRouter("test-key-admin")
+	r := setupAPIKeyRouter("test-key")
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
+	req := httptest.NewRequest(http.MethodGet, "/reports/personal", nil)
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 with missing key, got %d", w.Code)
@@ -70,7 +73,7 @@ func TestAPIKeyAuth_MissingKey(t *testing.T) {
 }
 
 func TestAPIKeyAuth_HealthBypass(t *testing.T) {
-	r := setupRouter("test-key-admin")
+	r := setupAPIKeyRouter("test-key")
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	r.ServeHTTP(w, req)
@@ -80,7 +83,7 @@ func TestAPIKeyAuth_HealthBypass(t *testing.T) {
 }
 
 func TestAPIKeyAuth_MetricsBypass(t *testing.T) {
-	r := setupRouter("test-key-admin")
+	r := setupAPIKeyRouter("test-key")
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	r.ServeHTTP(w, req)
@@ -89,11 +92,31 @@ func TestAPIKeyAuth_MetricsBypass(t *testing.T) {
 	}
 }
 
-func TestAPIKeyAuth_BearerToken(t *testing.T) {
-	r := setupRouter("test-key-admin")
+func TestAPIKeyAuth_UIBypass(t *testing.T) {
+	r := setupAPIKeyRouter("test-key", "/ui")
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
-	req.Header.Set("Authorization", "Bearer test-key-admin")
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /ui prefix bypass, got %d", w.Code)
+	}
+}
+
+func TestAPIKeyAuth_UINotBypassedWithoutPrefix(t *testing.T) {
+	r := setupAPIKeyRouter("test-key")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for /ui without bypass prefix, got %d", w.Code)
+	}
+}
+
+func TestAPIKeyAuth_BearerToken(t *testing.T) {
+	r := setupAPIKeyRouter("test-key")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/reports/personal", nil)
+	req.Header.Set("Authorization", "Bearer test-key")
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 with valid bearer token, got %d", w.Code)
@@ -101,9 +124,9 @@ func TestAPIKeyAuth_BearerToken(t *testing.T) {
 }
 
 func TestAPIKeyAuth_InvalidBearerToken(t *testing.T) {
-	r := setupRouter("test-key-admin")
+	r := setupAPIKeyRouter("test-key")
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
+	req := httptest.NewRequest(http.MethodGet, "/reports/personal", nil)
 	req.Header.Set("Authorization", "Bearer wrong-token")
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {

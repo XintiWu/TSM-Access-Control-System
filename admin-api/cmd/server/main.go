@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tsmc/admin-api/internal/config"
 	"github.com/tsmc/admin-api/internal/handler"
-	"github.com/tsmc/admin-api/internal/middleware"
+	"github.com/tsmc/platform-middleware"
 	"github.com/tsmc/admin-api/internal/queue"
 	"github.com/tsmc/admin-api/internal/repository"
 )

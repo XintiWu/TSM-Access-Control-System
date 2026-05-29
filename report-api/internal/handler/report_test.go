@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -202,4 +204,168 @@ func TestReportHandler_PersonalReport(t *testing.T) {
 			t.Errorf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
 		}
 	})
+}
+
+func TestReportHandler_DepartmentReport_InsufficientRole(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	orgID := uuid.New().String()
+	mockOrg := &MockOrgRepository{
+		GetEmployeeInfoFn: func(ctx context.Context, employeeID string) (*repository.EmployeeInfo, error) {
+			return &repository.EmployeeInfo{OrgUnitID: orgID, ReportRole: "EMPLOYEE"}, nil
+		},
+	}
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+
+	r := gin.New()
+	r.GET("/reports/department", h.DepartmentReport)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/department?orgUnitId="+orgID+"&startDate=2026-05-01&endDate=2026-05-30", nil)
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestReportHandler_Export_InsufficientRole(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	orgID := uuid.New().String()
+	mockOrg := &MockOrgRepository{
+		GetEmployeeInfoFn: func(ctx context.Context, employeeID string) (*repository.EmployeeInfo, error) {
+			return &repository.EmployeeInfo{OrgUnitID: orgID, ReportRole: "EMPLOYEE"}, nil
+		},
+	}
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+
+	r := gin.New()
+	r.GET("/reports/export", h.Export)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/export?format=csv&startDate=2026-05-01&endDate=2026-05-30", nil)
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestReportHandler_Export_PersonalSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	orgID := uuid.New().String()
+	userID := uuid.New().String()
+	mockOrg := &MockOrgRepository{
+		GetEmployeeInfoFn: func(ctx context.Context, employeeID string) (*repository.EmployeeInfo, error) {
+			return &repository.EmployeeInfo{OrgUnitID: orgID, ReportRole: "EMPLOYEE"}, nil
+		},
+	}
+	mockInOut := &MockInOutRepository{
+		GetPersonalEventsFn: func(ctx context.Context, employeeID, startDate, endDate string) ([]model.InOutEvent, error) {
+			return []model.InOutEvent{{EmployeeID: employeeID, Direction: "IN"}}, nil
+		},
+	}
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, mockInOut, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+
+	r := gin.New()
+	r.GET("/reports/export", h.Export)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/export?type=personal&format=csv&startDate=2026-05-01&endDate=2026-05-30", nil)
+	req.Header.Set("X-User-ID", userID)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestReportHandler_Export_InternalError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	orgID := uuid.New().String()
+	userID := uuid.New().String()
+	mockOrg := &MockOrgRepository{
+		GetEmployeeInfoFn: func(ctx context.Context, employeeID string) (*repository.EmployeeInfo, error) {
+			return &repository.EmployeeInfo{OrgUnitID: orgID, ReportRole: "EMPLOYEE"}, nil
+		},
+	}
+	mockInOut := &MockInOutRepository{
+		GetPersonalEventsFn: func(ctx context.Context, employeeID, startDate, endDate string) ([]model.InOutEvent, error) {
+			return nil, errors.New("database error")
+		},
+	}
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, mockInOut, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+
+	r := gin.New()
+	r.GET("/reports/export", h.Export)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/export?type=personal&format=csv&startDate=2026-05-01&endDate=2026-05-30", nil)
+	req.Header.Set("X-User-ID", userID)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestReportHandler_ExportJobCreate_InvalidJSON(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	orgID := uuid.New().String()
+	mockOrg := &MockOrgRepository{
+		GetEmployeeInfoFn: func(ctx context.Context, employeeID string) (*repository.EmployeeInfo, error) {
+			return &repository.EmployeeInfo{OrgUnitID: orgID, ReportRole: "EMPLOYEE"}, nil
+		},
+	}
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+
+	r := gin.New()
+	r.POST("/reports/export/jobs", h.ExportJobCreate)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/reports/export/jobs", strings.NewReader("{invalid"))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestReportHandler_ExportJobCreate_JobsUnavailable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	orgID := uuid.New().String()
+	mockOrg := &MockOrgRepository{
+		GetEmployeeInfoFn: func(ctx context.Context, employeeID string) (*repository.EmployeeInfo, error) {
+			return &repository.EmployeeInfo{OrgUnitID: orgID, ReportRole: "EMPLOYEE"}, nil
+		},
+	}
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+
+	r := gin.New()
+	r.POST("/reports/export/jobs", h.ExportJobCreate)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/reports/export/jobs", strings.NewReader(`{"format":"csv","type":"personal","startDate":"2026-05-01","endDate":"2026-05-30"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d. Body: %s", w.Code, w.Body.String())
+	}
 }

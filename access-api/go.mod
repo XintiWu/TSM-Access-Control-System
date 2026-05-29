@@ -9,6 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/segmentio/kafka-go v0.4.47
+	github.com/tsmc/platform-middleware v0.0.0
 )
 
 require (
@@ -58,3 +59,5 @@ require (
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/tsmc/platform-middleware => ../pkg/middleware

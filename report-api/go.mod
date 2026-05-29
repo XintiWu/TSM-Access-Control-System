@@ -9,6 +9,7 @@ require (
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/prometheus/client_golang v1.20.5
 	github.com/redis/go-redis/v9 v9.7.0
+	github.com/tsmc/platform-middleware v0.0.0
 	github.com/wcharczuk/go-chart/v2 v2.1.2
 )
 
@@ -61,3 +62,5 @@ require (
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/tsmc/platform-middleware => ../pkg/middleware

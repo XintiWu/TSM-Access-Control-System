@@ -14,7 +14,7 @@ import (
 	"github.com/tsmc/access-api/internal/cache"
 	"github.com/tsmc/access-api/internal/config"
 	"github.com/tsmc/access-api/internal/handler"
-	"github.com/tsmc/access-api/internal/middleware"
+	"github.com/tsmc/platform-middleware"
 	"github.com/tsmc/access-api/internal/queue"
 	"github.com/tsmc/access-api/internal/repository"
 	"github.com/tsmc/access-api/internal/service"

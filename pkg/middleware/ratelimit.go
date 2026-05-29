@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// clientTracker holds rate limiting state for a single client IP.
 type clientTracker struct {
 	tokens     int
 	lastRefill time.Time

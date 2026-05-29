@@ -27,3 +27,6 @@ report.csv
 
 # Environment variables
 .env
+
+# Test coverage reports
+**/coverage.out
