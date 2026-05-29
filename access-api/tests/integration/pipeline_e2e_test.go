@@ -21,7 +21,7 @@ func TestPipelineE2E(t *testing.T) {
 	}
 
 	apiURL := envOr("API_URL", "http://localhost:8080")
-	chDSN := envOr("CH_DSN", "clickhouse://default:password123@127.0.0.1:9000/access_control")
+	chDSN := envOr("CH_DSN", "clickhouse://default:@127.0.0.1:9000/access_control")
 	userID := envOr("DEMO_USER", "22222222-2222-2222-2222-222222222222")
 	doorID := envOr("DEMO_DOOR", "11111111-1111-1111-1111-111111111111")
 

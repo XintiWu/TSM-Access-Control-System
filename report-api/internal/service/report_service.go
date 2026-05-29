@@ -92,8 +92,14 @@ func (s *ReportService) GetPersonalReport(ctx context.Context, userID, startDate
 	// Calculate hours worked per day
 	for _, rec := range dayMap {
 		if rec.FirstIn != "" && rec.LastOut != "" {
-			firstIn, _ := time.Parse("15:04:05", rec.FirstIn)
-			lastOut, _ := time.Parse("15:04:05", rec.LastOut)
+			firstIn, err := time.Parse("15:04:05", rec.FirstIn)
+			if err != nil {
+				continue
+			}
+			lastOut, err := time.Parse("15:04:05", rec.LastOut)
+			if err != nil {
+				continue
+			}
 			hours := lastOut.Sub(firstIn).Hours()
 			if hours > 0 {
 				rec.HoursWorked = math.Round(hours*100) / 100
@@ -102,8 +108,14 @@ func (s *ReportService) GetPersonalReport(ctx context.Context, userID, startDate
 	}
 
 	// Sort by date
-	start, _ := time.Parse("2006-01-02", startDate)
-	end, _ := time.Parse("2006-01-02", endDate)
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		return nil, fmt.Errorf("parse start date: %w", err)
+	}
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		return nil, fmt.Errorf("parse end date: %w", err)
+	}
 	var records []model.DailyRecord
 	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
 		dateStr := d.Format("2006-01-02")
@@ -146,7 +158,7 @@ func (s *ReportService) GetDepartmentReport(ctx context.Context, req model.Depar
 		return nil, fmt.Errorf("check subtree: %w", err)
 	}
 	if !inSubtree {
-		return nil, fmt.Errorf("access denied: orgUnitId %s is not in your subtree", req.OrgUnitID)
+		return nil, NewAccessDeniedError(fmt.Sprintf("orgUnitId %s is not in your subtree", req.OrgUnitID))
 	}
 
 	granularity := req.Granularity
@@ -304,8 +316,14 @@ func groupByDay(rows []model.AggregatedRow) []model.PeriodReport {
 }
 
 func groupByWeek(rows []model.AggregatedRow, startDate, endDate string) []model.PeriodReport {
-	start, _ := time.Parse("2006-01-02", startDate)
-	end, _ := time.Parse("2006-01-02", endDate)
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		return nil
+	}
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		return nil
+	}
 
 	// Build week boundaries
 	type weekBucket struct {
@@ -328,7 +346,10 @@ func groupByWeek(rows []model.AggregatedRow, startDate, endDate string) []model.
 	}
 
 	for _, r := range rows {
-		rd, _ := time.Parse("2006-01-02", r.ReportDate)
+		rd, err := time.Parse("2006-01-02", r.ReportDate)
+		if err != nil {
+			continue
+		}
 		for i := range buckets {
 			if (rd.Equal(buckets[i].start) || rd.After(buckets[i].start)) &&
 				(rd.Equal(buckets[i].end) || rd.Before(buckets[i].end)) {
@@ -351,7 +372,10 @@ func groupByMonth(rows []model.AggregatedRow, startDate, endDate string) []model
 	monthMap := make(map[string]*model.PeriodReport) // key: "2006-01"
 	var order []string
 	for _, r := range rows {
-		rd, _ := time.Parse("2006-01-02", r.ReportDate)
+		rd, err := time.Parse("2006-01-02", r.ReportDate)
+		if err != nil {
+			continue
+		}
 		monthKey := rd.Format("2006-01")
 		p, ok := monthMap[monthKey]
 		if !ok {
@@ -379,7 +403,10 @@ func groupByQuarter(rows []model.AggregatedRow, startDate, endDate string) []mod
 	quarterMap := make(map[string]*model.PeriodReport)
 	var order []string
 	for _, r := range rows {
-		rd, _ := time.Parse("2006-01-02", r.ReportDate)
+		rd, err := time.Parse("2006-01-02", r.ReportDate)
+		if err != nil {
+			continue
+		}
 		q := (int(rd.Month())-1)/3 + 1
 		key := fmt.Sprintf("%d-Q%d", rd.Year(), q)
 		p, ok := quarterMap[key]
@@ -401,8 +428,6 @@ func groupByQuarter(rows []model.AggregatedRow, startDate, endDate string) []mod
 	for _, k := range order {
 		periods = append(periods, *quarterMap[k])
 	}
-	_ = startDate
-	_ = endDate
 	return periods
 }
 
@@ -410,7 +435,10 @@ func groupByYear(rows []model.AggregatedRow, startDate, endDate string) []model.
 	yearMap := make(map[string]*model.PeriodReport)
 	var order []string
 	for _, r := range rows {
-		rd, _ := time.Parse("2006-01-02", r.ReportDate)
+		rd, err := time.Parse("2006-01-02", r.ReportDate)
+		if err != nil {
+			continue
+		}
 		key := fmt.Sprintf("%d", rd.Year())
 		p, ok := yearMap[key]
 		if !ok {
@@ -429,8 +457,6 @@ func groupByYear(rows []model.AggregatedRow, startDate, endDate string) []model.
 	for _, k := range order {
 		periods = append(periods, *yearMap[k])
 	}
-	_ = startDate
-	_ = endDate
 	return periods
 }
 
@@ -511,7 +537,7 @@ func (s *ReportService) GetAuditLog(ctx context.Context, req model.AuditLogReque
 // ExportCSV generates a CSV file for events within the requester's org subtree.
 func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, requesterOrgUnitID string, role auth.ReportRole) (io.Reader, error) {
 	if !role.CanViewDepartmentReports() {
-		return nil, fmt.Errorf("access denied: role %s cannot export org reports", role)
+		return nil, NewAccessDeniedError(fmt.Sprintf("role %s cannot export org reports", role))
 	}
 	// Permission check
 	inSubtree, err := s.orgRepo.IsInSubtree(ctx, requesterOrgUnitID, req.OrgUnitID)
@@ -519,7 +545,7 @@ func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, 
 		return nil, fmt.Errorf("check subtree: %w", err)
 	}
 	if !inSubtree {
-		return nil, fmt.Errorf("access denied: orgUnitId %s is not in your subtree", req.OrgUnitID)
+		return nil, NewAccessDeniedError(fmt.Sprintf("orgUnitId %s is not in your subtree", req.OrgUnitID))
 	}
 
 	subtreeIDs, err := s.orgRepo.GetSubtreeIDs(ctx, req.OrgUnitID)
@@ -536,14 +562,16 @@ func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, 
 	w := csv.NewWriter(&buf)
 
 	// Header
-	_ = w.Write([]string{"EventID", "EmployeeID", "DoorID", "Direction", "EventTime", "Status", "Reason", "SourceIP"})
+	if err := w.Write([]string{"EventID", "EmployeeID", "DoorID", "Direction", "EventTime", "Status", "Reason", "SourceIP"}); err != nil {
+		return nil, fmt.Errorf("csv header: %w", err)
+	}
 
 	for _, e := range events {
 		reason := ""
 		if e.Reason != nil {
 			reason = *e.Reason
 		}
-		_ = w.Write([]string{
+		if err := w.Write([]string{
 			e.EventID,
 			e.EmployeeID,
 			e.DoorID,
@@ -552,7 +580,9 @@ func (s *ReportService) ExportCSV(ctx context.Context, req model.ExportRequest, 
 			e.Status,
 			reason,
 			e.SourceIP,
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("csv row: %w", err)
+		}
 	}
 	w.Flush()
 	if err := w.Error(); err != nil {

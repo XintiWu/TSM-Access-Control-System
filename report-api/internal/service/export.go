@@ -27,7 +27,7 @@ func (s *ReportService) BuildExportDocument(ctx context.Context, req model.Expor
 
 	case "department":
 		if !role.CanViewDepartmentReports() {
-			return export.Document{}, fmt.Errorf("access denied: role %s cannot export department reports", role)
+			return export.Document{}, NewAccessDeniedError(fmt.Sprintf("role %s cannot export department reports", role))
 		}
 		if req.OrgUnitID == "" {
 			return export.Document{}, fmt.Errorf("orgUnitId is required for department export")
@@ -44,7 +44,7 @@ func (s *ReportService) BuildExportDocument(ctx context.Context, req model.Expor
 
 	default: // events
 		if !role.CanViewDepartmentReports() {
-			return export.Document{}, fmt.Errorf("access denied: role %s cannot export event logs", role)
+			return export.Document{}, NewAccessDeniedError(fmt.Sprintf("role %s cannot export event logs", role))
 		}
 		if req.OrgUnitID == "" {
 			return export.Document{}, fmt.Errorf("orgUnitId is required for events export")
@@ -54,7 +54,7 @@ func (s *ReportService) BuildExportDocument(ctx context.Context, req model.Expor
 			return export.Document{}, fmt.Errorf("check subtree: %w", err)
 		}
 		if !inSubtree {
-			return export.Document{}, fmt.Errorf("access denied: orgUnitId %s is not in your subtree", req.OrgUnitID)
+			return export.Document{}, NewAccessDeniedError(fmt.Sprintf("orgUnitId %s is not in your subtree", req.OrgUnitID))
 		}
 		orgUnit, err := s.orgRepo.GetOrgUnit(ctx, req.OrgUnitID)
 		if err != nil || orgUnit == nil {

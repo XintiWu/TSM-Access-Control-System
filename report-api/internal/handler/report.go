@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -90,7 +92,8 @@ func (h *ReportHandler) PersonalReport(c *gin.Context) {
 	resp, err := h.svc.GetPersonalReport(c.Request.Context(), userID, req.StartDate, req.EndDate)
 	if err != nil {
 		requestTotal.WithLabelValues("personal", "500").Inc()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.Error("internal error", "endpoint", "personal", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -125,13 +128,13 @@ func (h *ReportHandler) DepartmentReport(c *gin.Context) {
 
 	resp, err := h.svc.GetDepartmentReport(c.Request.Context(), req, orgUnitID)
 	if err != nil {
-		if strings.Contains(err.Error(), "access denied") {
+		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("department", "403").Inc()
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		requestTotal.WithLabelValues("department", "500").Inc()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.Error("internal error", "endpoint", "department", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -162,7 +165,8 @@ func (h *ReportHandler) AuditLog(c *gin.Context) {
 	resp, err := h.svc.GetAuditLog(c.Request.Context(), req, userID, orgUnitID, role)
 	if err != nil {
 		requestTotal.WithLabelValues("audit", "500").Inc()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.Error("internal error", "endpoint", "audit", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -201,13 +205,13 @@ func (h *ReportHandler) Export(c *gin.Context) {
 
 	data, ext, err := h.svc.ExportSync(c.Request.Context(), req, userID, orgUnitID, role)
 	if err != nil {
-		if strings.Contains(err.Error(), "access denied") {
+		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("export", "403").Inc()
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		requestTotal.WithLabelValues("export", "500").Inc()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.Error("internal error", "endpoint", "export", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -291,7 +295,8 @@ func (h *ReportHandler) ExportJobGet(c *gin.Context) {
 	case export.JobDone:
 		f, name, err := store.OpenResult(jobID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			slog.Error("internal error", "endpoint", "export_job_get", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 		defer f.Close()
@@ -320,16 +325,20 @@ func (h *ReportHandler) DoorHeatmap(c *gin.Context) {
 		return
 	}
 	var req model.DoorHeatmapRequest
-	_ = c.ShouldBindQuery(&req)
+	if err := c.ShouldBindQuery(&req); err != nil {
+		requestTotal.WithLabelValues("door_heatmap", "400").Inc()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query parameters"})
+		return
+	}
 	resp, err := h.svc.GetDoorHeatmap(c.Request.Context(), req.OrgUnitID, req.Minutes, orgUnitID, role)
 	if err != nil {
-		if strings.Contains(err.Error(), "access denied") {
+		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("door_heatmap", "403").Inc()
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		requestTotal.WithLabelValues("door_heatmap", "500").Inc()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.Error("internal error", "endpoint", "door_heatmap", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	requestTotal.WithLabelValues("door_heatmap", "200").Inc()
@@ -356,13 +365,13 @@ func (h *ReportHandler) AttendanceTrends(c *gin.Context) {
 	}
 	resp, err := h.svc.GetAttendanceTrends(c.Request.Context(), req, orgUnitID, role)
 	if err != nil {
-		if strings.Contains(err.Error(), "access denied") {
+		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("attendance_trends", "403").Inc()
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		requestTotal.WithLabelValues("attendance_trends", "500").Inc()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.Error("internal error", "endpoint", "attendance_trends", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	requestTotal.WithLabelValues("attendance_trends", "200").Inc()
@@ -389,13 +398,13 @@ func (h *ReportHandler) WorkforceUtilization(c *gin.Context) {
 	}
 	resp, err := h.svc.GetWorkforceUtilization(c.Request.Context(), req, orgUnitID, role)
 	if err != nil {
-		if strings.Contains(err.Error(), "access denied") {
+		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("workforce_utilization", "403").Inc()
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		requestTotal.WithLabelValues("workforce_utilization", "500").Inc()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.Error("internal error", "endpoint", "workforce_utilization", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	requestTotal.WithLabelValues("workforce_utilization", "200").Inc()

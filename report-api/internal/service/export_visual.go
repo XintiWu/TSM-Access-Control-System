@@ -20,7 +20,7 @@ func (s *ReportService) ExportDepartmentVisualPDF(
 	role auth.ReportRole,
 ) ([]byte, error) {
 	if !role.CanViewDepartmentReports() {
-		return nil, fmt.Errorf("access denied: role %s cannot export department reports", role)
+		return nil, NewAccessDeniedError(fmt.Sprintf("role %s cannot export department reports", role))
 	}
 	if req.OrgUnitID == "" {
 		return nil, fmt.Errorf("orgUnitId is required")

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -62,9 +63,9 @@ func (h *AdminHandler) setPermission(c *gin.Context, active bool, action model.P
 		EventTime: time.Now().UTC(),
 	}
 	if err := h.publisher.Publish(ctx, event); err != nil {
+		slog.Error("publish permission event failed", "userId", userID, "error", err)
 		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"error":  "failed to publish permission event",
-			"detail": err.Error(),
+			"error": "failed to publish permission event",
 		})
 		return
 	}

@@ -12,7 +12,7 @@ import (
 // GetDoorHeatmap returns real-time door swipe ranking scoped to an org subtree.
 func (s *ReportService) GetDoorHeatmap(ctx context.Context, orgUnitID string, minutes int, requesterOrgUnitID string, role auth.ReportRole) (*model.DoorHeatmapResponse, error) {
 	if !role.CanViewDepartmentReports() {
-		return nil, fmt.Errorf("access denied: role %s cannot view door analytics", role)
+		return nil, NewAccessDeniedError(fmt.Sprintf("role %s cannot view door analytics", role))
 	}
 	if orgUnitID == "" {
 		orgUnitID = requesterOrgUnitID
@@ -22,7 +22,7 @@ func (s *ReportService) GetDoorHeatmap(ctx context.Context, orgUnitID string, mi
 		return nil, err
 	}
 	if !inSubtree {
-		return nil, fmt.Errorf("access denied: orgUnitId %s is not in your subtree", orgUnitID)
+		return nil, NewAccessDeniedError(fmt.Sprintf("orgUnitId %s is not in your subtree", orgUnitID))
 	}
 	if minutes < 1 {
 		minutes = 60
@@ -50,14 +50,14 @@ func (s *ReportService) GetDoorHeatmap(ctx context.Context, orgUnitID string, mi
 // GetAttendanceTrends returns avg hours and late rate series for charts.
 func (s *ReportService) GetAttendanceTrends(ctx context.Context, req model.AttendanceTrendsRequest, requesterOrgUnitID string, role auth.ReportRole) (*model.AttendanceTrendsResponse, error) {
 	if !role.CanViewDepartmentReports() {
-		return nil, fmt.Errorf("access denied: role %s cannot view attendance trends", role)
+		return nil, NewAccessDeniedError(fmt.Sprintf("role %s cannot view attendance trends", role))
 	}
 	inSubtree, err := s.orgRepo.IsInSubtree(ctx, requesterOrgUnitID, req.OrgUnitID)
 	if err != nil {
 		return nil, err
 	}
 	if !inSubtree {
-		return nil, fmt.Errorf("access denied: orgUnitId %s is not in your subtree", req.OrgUnitID)
+		return nil, NewAccessDeniedError(fmt.Sprintf("orgUnitId %s is not in your subtree", req.OrgUnitID))
 	}
 	granularity := req.Granularity
 	if granularity == "" {
@@ -104,14 +104,14 @@ func (s *ReportService) GetAttendanceTrends(ctx context.Context, req model.Atten
 // GetWorkforceUtilization returns headcount-based utilization for an org subtree.
 func (s *ReportService) GetWorkforceUtilization(ctx context.Context, req model.WorkforceUtilizationRequest, requesterOrgUnitID string, role auth.ReportRole) (*model.WorkforceUtilizationResponse, error) {
 	if !role.CanViewDepartmentReports() {
-		return nil, fmt.Errorf("access denied: role %s cannot view workforce utilization", role)
+		return nil, NewAccessDeniedError(fmt.Sprintf("role %s cannot view workforce utilization", role))
 	}
 	inSubtree, err := s.orgRepo.IsInSubtree(ctx, requesterOrgUnitID, req.OrgUnitID)
 	if err != nil {
 		return nil, err
 	}
 	if !inSubtree {
-		return nil, fmt.Errorf("access denied: orgUnitId %s is not in your subtree", req.OrgUnitID)
+		return nil, NewAccessDeniedError(fmt.Sprintf("orgUnitId %s is not in your subtree", req.OrgUnitID))
 	}
 	orgUnit, err := s.orgRepo.GetOrgUnit(ctx, req.OrgUnitID)
 	if err != nil || orgUnit == nil {
