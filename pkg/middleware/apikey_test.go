@@ -30,13 +30,13 @@ func setupAPIKeyRouter(apiKey string, extraBypass ...string) *gin.Engine {
 	return r
 }
 
-func TestAPIKeyAuth_Disabled(t *testing.T) {
+func TestAPIKeyAuth_NotConfigured(t *testing.T) {
 	r := setupAPIKeyRouter("")
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/reports/personal", nil)
 	r.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200 when auth disabled, got %d", w.Code)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 when auth not configured, got %d", w.Code)
 	}
 }
 

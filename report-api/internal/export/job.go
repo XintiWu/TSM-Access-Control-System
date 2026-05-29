@@ -37,7 +37,7 @@ func NewJobStore(dir string) (*JobStore, error) {
 	if dir == "" {
 		dir = "/tmp/report-exports"
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("mkdir export dir: %w", err)
 	}
 	return &JobStore{dir: dir, jobs: make(map[string]*Job)}, nil

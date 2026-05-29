@@ -97,7 +97,7 @@ jobs:
             -Dsonar.go.coverage.reportPaths=pkg/middleware/coverage.out,access-api/coverage.out,admin-api/coverage.out,cache-invalidation-worker/coverage.out,report-api/coverage.out
             -Dsonar.scanner.skipJreProvisioning=true
             -Dsonar.cpd.exclusions=**/*_test.go
-            -Dsonar.exclusions=**/Dockerfile,**/docker-compose.yml,k8s/**,monitoring/**,report-api/report-ui/**,**/.env.example,scripts/**
+            -Dsonar.exclusions=**/Dockerfile,**/docker-compose.yml,k8s/**,monitoring/**,report-api/report-ui/**,**/.env.example,scripts/**,access-api/tests/integration/**
             -Dsonar.coverage.exclusions=**/cmd/**,**/repository/**
 
       # 2. 啟動 Docker Compose 服務，供集成與 E2E 測試使用
@@ -138,6 +138,7 @@ jobs:
       - name: Run E2E Integration Tests
         env:
           CH_DSN: clickhouse://default:password123@127.0.0.1:9000/access_control
+          API_KEY: dev-api-key-2026
         run: |
           make test-e2e-pipeline
 

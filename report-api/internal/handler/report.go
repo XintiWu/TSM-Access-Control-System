@@ -296,7 +296,7 @@ func (h *ReportHandler) ExportJobGet(c *gin.Context) {
 	}
 	switch job.Status {
 	case export.JobPending:
-		c.JSON(http.StatusAccepted, job)
+		c.JSON(http.StatusAccepted, exportJobResponse(job))
 		return
 	case export.JobFailed:
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -325,7 +325,17 @@ func (h *ReportHandler) ExportJobGet(c *gin.Context) {
 		}
 		return
 	}
-	c.JSON(http.StatusOK, job)
+	c.JSON(http.StatusOK, exportJobResponse(job))
+}
+
+func exportJobResponse(job *export.Job) gin.H {
+	return gin.H{
+		"jobId":     job.ID,
+		"status":    job.Status,
+		"format":    job.Format,
+		"type":      job.Type,
+		"createdAt": job.CreatedAt,
+	}
 }
 
 // DoorHeatmap handles GET /reports/analytics/door-heatmap

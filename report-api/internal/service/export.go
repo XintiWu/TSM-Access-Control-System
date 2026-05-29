@@ -138,7 +138,7 @@ func (s *ReportService) RunExportJob(jobID string, req model.ExportRequest, user
 			return
 		}
 		path := s.jobs.FilePath(jobID, ext)
-		if err := os.WriteFile(path, data, 0o644); err != nil {
+		if err := os.WriteFile(path, data, 0o600); err != nil {
 			slog.Error("export write file failed", "jobId", jobID, "error", err)
 			s.jobs.MarkFailed(jobID, "export job failed due to internal error")
 			return

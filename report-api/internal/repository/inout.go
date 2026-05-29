@@ -93,25 +93,22 @@ type AuditFilter struct {
 
 // GetAuditEvents returns paginated raw events with optional filters from ClickHouse.
 func (r *chInOutRepository) GetAuditEvents(ctx context.Context, f AuditFilter) ([]model.InOutEvent, int, error) {
-	where, args, err := buildAuditWhereClauses(f)
+	queries, args, err := buildAuditQuery(f)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	countQuery := auditCountQueryPrefix + where
 	var totalCount uint64
-	if err := r.chConn.QueryRow(ctx, countQuery, args...).Scan(&totalCount); err != nil {
+	if err := r.chConn.QueryRow(ctx, queries.count, args...).Scan(&totalCount); err != nil {
 		return nil, 0, err
 	}
 
 	offset := (f.Page - 1) * f.PageSize
-	selectQuery := auditSelectQueryPrefix + where + auditSelectQuerySuffix
-
 	allArgs := make([]interface{}, len(args))
 	copy(allArgs, args)
 	allArgs = append(allArgs, f.PageSize, offset)
 
-	rows, err := r.chConn.Query(ctx, selectQuery, allArgs...)
+	rows, err := r.chConn.Query(ctx, queries.selectSQL, allArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -122,63 +119,6 @@ func (r *chInOutRepository) GetAuditEvents(ctx context.Context, f AuditFilter) (
 		return nil, 0, err
 	}
 	return events, int(totalCount), nil
-}
-
-const (
-	auditDateRangeClause   = "event_time >= toDateTime64(?, 3, 'UTC') AND event_time < addDays(toDateTime64(?, 3, 'UTC'), 1)"
-	auditEmployeeClause    = "employee_id = ?"
-	auditDoorClause        = "door_id = ?"
-	auditStatusClause      = "status = ?"
-	auditOrgUnitInClause   = "org_unit_id IN (?)"
-	auditCountQueryPrefix  = "SELECT COUNT(*) FROM inout_events WHERE "
-	auditSelectQueryPrefix = `
-		SELECT id, employee_id, door_id, direction, event_time,
-		       status, reason, COALESCE(card_uid,''), COALESCE(source_ip,'')
-		FROM inout_events
-		WHERE `
-	auditSelectQuerySuffix = `
-		ORDER BY event_time DESC
-		LIMIT ? OFFSET ?`
-)
-
-func buildAuditWhereClauses(f AuditFilter) (string, []interface{}, error) {
-	clauses := []string{auditDateRangeClause}
-	args := []interface{}{f.StartDate, f.EndDate}
-
-	if f.EmployeeID != "" {
-		empUUID, err := uuid.Parse(f.EmployeeID)
-		if err != nil {
-			return "", nil, fmt.Errorf("invalid employee id: %w", err)
-		}
-		clauses = append(clauses, auditEmployeeClause)
-		args = append(args, empUUID)
-	}
-	if f.DoorID != "" {
-		doorUUID, err := uuid.Parse(f.DoorID)
-		if err != nil {
-			return "", nil, fmt.Errorf("invalid door id: %w", err)
-		}
-		clauses = append(clauses, auditDoorClause)
-		args = append(args, doorUUID)
-	}
-	if f.Status != "" {
-		clauses = append(clauses, auditStatusClause)
-		args = append(args, f.Status)
-	}
-
-	if len(f.OrgUnitIDs) > 0 {
-		var orgUUIDs []uuid.UUID
-		for _, id := range f.OrgUnitIDs {
-			u, err := uuid.Parse(id)
-			if err == nil {
-				orgUUIDs = append(orgUUIDs, u)
-			}
-		}
-		clauses = append(clauses, auditOrgUnitInClause)
-		args = append(args, orgUUIDs)
-	}
-
-	return strings.Join(clauses, " AND "), args, nil
 }
 
 // GetEventsForExport returns all events for an org-unit subtree in a date range (no pagination) from ClickHouse.

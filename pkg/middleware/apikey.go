@@ -11,17 +11,19 @@ import (
 // APIKeyAuth returns a Gin middleware that validates the X-API-Key header.
 // Requests to /health and /metrics are always exempt from authentication.
 // Additional path prefixes may be passed via extraBypassPrefixes (e.g. "/ui").
-// If apiKey is empty, the middleware is a no-op (auth disabled).
+// If apiKey is empty, non-health requests are rejected (auth must be configured).
 func APIKeyAuth(apiKey string, extraBypassPrefixes ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if apiKey == "" {
+		path := c.Request.URL.Path
+		if path == "/health" || path == "/metrics" {
 			c.Next()
 			return
 		}
 
-		path := c.Request.URL.Path
-		if path == "/health" || path == "/metrics" {
-			c.Next()
+		if apiKey == "" {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+				"error": "authentication not configured",
+			})
 			return
 		}
 		for _, prefix := range extraBypassPrefixes {

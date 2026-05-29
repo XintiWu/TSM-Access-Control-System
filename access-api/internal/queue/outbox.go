@@ -32,7 +32,7 @@ func NewFileOutbox(dir string) (*FileOutbox, error) {
 func (o *FileOutbox) Append(event model.InOutEvent) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	f, err := os.OpenFile(o.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(o.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (o *FileOutbox) rewriteLocked(events []model.InOutEvent) error {
 		}
 		return nil
 	}
-	f, err := os.OpenFile(o.path, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(o.path, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
