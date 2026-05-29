@@ -25,6 +25,8 @@ func TestPipelineE2E(t *testing.T) {
 	userID := envOr("DEMO_USER", "22222222-2222-2222-2222-222222222222")
 	doorID := envOr("DEMO_DOOR", "11111111-1111-1111-1111-111111111111")
 
+	apiKey := envOr("API_KEY", "dev-api-key-2026")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
@@ -64,6 +66,9 @@ func TestPipelineE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 	swipeReq.Header.Set("Content-Type", "application/json")
+	if apiKey != "" {
+		swipeReq.Header.Set("X-API-Key", apiKey)
+	}
 	swipeResp, err := http.DefaultClient.Do(swipeReq)
 	if err != nil {
 		t.Fatal(err)
