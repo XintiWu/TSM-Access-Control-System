@@ -77,6 +77,11 @@ jobs:
           cd ../admin-api && go test -v -coverprofile=coverage.out ./...
           cd ../cache-invalidation-worker && go test -v -coverprofile=coverage.out ./...
           cd ../report-api && go test -v -coverprofile=coverage.out ./...
+          cd ..
+          sed -i 's|github.com/tsmc/access-api/|access-api/|g' access-api/coverage.out
+          sed -i 's|github.com/tsmc/admin-api/|admin-api/|g' admin-api/coverage.out
+          sed -i 's|github.com/tsmc/cache-invalidation-worker/|cache-invalidation-worker/|g' cache-invalidation-worker/coverage.out
+          sed -i 's|github.com/tsmc/report-api/|report-api/|g' report-api/coverage.out
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v3
@@ -89,6 +94,7 @@ jobs:
             -Dsonar.organization=xintiwu
             -Dsonar.go.coverage.reportPaths=access-api/coverage.out,admin-api/coverage.out,cache-invalidation-worker/coverage.out,report-api/coverage.out
             -Dsonar.scanner.skipJreProvisioning=true
+            -Dsonar.cpd.exclusions=**/*_test.go
 
       # 2. 啟動 Docker Compose 服務，供集成與 E2E 測試使用
       - name: Start Core Docker Compose Services
