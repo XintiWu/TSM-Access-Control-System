@@ -14,7 +14,11 @@ func WriteCSV(doc Document) ([]byte, error) {
 			return nil, err
 		}
 	}
-	_ = w.Write(nil)
+	if len(doc.Meta) > 0 {
+		if err := w.Write([]string{}); err != nil {
+			return nil, err
+		}
+	}
 	if err := w.Write(doc.Headers); err != nil {
 		return nil, err
 	}

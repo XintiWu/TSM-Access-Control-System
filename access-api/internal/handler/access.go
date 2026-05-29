@@ -11,11 +11,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/tsmc/access-api/internal/cache"
 	"github.com/tsmc/access-api/internal/model"
 	"github.com/tsmc/access-api/internal/queue"
 	"github.com/tsmc/access-api/internal/service"
 )
+
+type stateCache interface {
+	GetPassback(ctx context.Context, userID string) (model.PassbackState, error)
+	GetDoorStatus(ctx context.Context, doorID string) (string, error)
+}
 
 var (
 	swipeTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -37,11 +41,11 @@ var (
 
 type AccessHandler struct {
 	decisions *service.AccessDecisionService
-	cache     *cache.RedisCache
+	cache     stateCache
 	publisher queue.EventPublisher
 }
 
-func NewAccessHandler(decisions *service.AccessDecisionService, c *cache.RedisCache, pub queue.EventPublisher) *AccessHandler {
+func NewAccessHandler(decisions *service.AccessDecisionService, c stateCache, pub queue.EventPublisher) *AccessHandler {
 	return &AccessHandler{decisions: decisions, cache: c, publisher: pub}
 }
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,6 +44,33 @@ func TestRateLimit_ExceedsLimit(t *testing.T) {
 	r.ServeHTTP(w2, req)
 	if w2.Code != http.StatusTooManyRequests {
 		t.Fatalf("expected 429 on second request, got %d", w2.Code)
+	}
+}
+
+func TestRateLimit_TokenRefill(t *testing.T) {
+	r := setupRateLimitRouter(5)
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.RemoteAddr = "10.0.0.99:9999"
+
+	for i := 0; i < 5; i++ {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("request %d: expected 200, got %d", i+1, w.Code)
+		}
+	}
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 after burst, got %d", w.Code)
+	}
+
+	time.Sleep(1100 * time.Millisecond)
+
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("expected 200 after refill, got %d", w2.Code)
 	}
 }
 

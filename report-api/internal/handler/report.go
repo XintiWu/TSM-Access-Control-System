@@ -229,7 +229,9 @@ func (h *ReportHandler) Export(c *gin.Context) {
 	}
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	requestTotal.WithLabelValues("export", "200").Inc()
-	_, _ = c.Writer.Write(data)
+	if _, err := c.Writer.Write(data); err != nil {
+		slog.Error("failed to write export response", "endpoint", "export", "error", err)
+	}
 }
 
 // ExportJobCreate handles POST /reports/export/jobs (async export)
@@ -297,7 +299,11 @@ func (h *ReportHandler) ExportJobGet(c *gin.Context) {
 		c.JSON(http.StatusAccepted, job)
 		return
 	case export.JobFailed:
-		c.JSON(http.StatusInternalServerError, job)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"jobId":  job.ID,
+			"status": job.Status,
+			"error":  "export job failed",
+		})
 		return
 	case export.JobDone:
 		f, name, err := store.OpenResult(jobID)
@@ -313,7 +319,10 @@ func (h *ReportHandler) ExportJobGet(c *gin.Context) {
 			c.Header("Content-Type", "text/csv")
 		}
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", name))
-		_, _ = io.Copy(c.Writer, f)
+		if _, err := io.Copy(c.Writer, f); err != nil {
+			slog.Error("failed to stream export job result", "endpoint", "export_job_get", "error", err)
+			return
+		}
 		return
 	}
 	c.JSON(http.StatusOK, job)

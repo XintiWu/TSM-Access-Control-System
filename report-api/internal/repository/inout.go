@@ -93,63 +93,19 @@ type AuditFilter struct {
 
 // GetAuditEvents returns paginated raw events with optional filters from ClickHouse.
 func (r *chInOutRepository) GetAuditEvents(ctx context.Context, f AuditFilter) ([]model.InOutEvent, int, error) {
-	var whereClauses []string
-	var args []interface{}
-
-	whereClauses = append(whereClauses, "event_time >= toDateTime64(?, 3, 'UTC') AND event_time < addDays(toDateTime64(?, 3, 'UTC'), 1)")
-	args = append(args, f.StartDate, f.EndDate)
-
-	if f.EmployeeID != "" {
-		empUUID, err := uuid.Parse(f.EmployeeID)
-		if err != nil {
-			return nil, 0, fmt.Errorf("invalid employee id: %w", err)
-		}
-		whereClauses = append(whereClauses, "employee_id = ?")
-		args = append(args, empUUID)
-	}
-	if f.DoorID != "" {
-		doorUUID, err := uuid.Parse(f.DoorID)
-		if err != nil {
-			return nil, 0, fmt.Errorf("invalid door id: %w", err)
-		}
-		whereClauses = append(whereClauses, "door_id = ?")
-		args = append(args, doorUUID)
-	}
-	if f.Status != "" {
-		whereClauses = append(whereClauses, "status = ?")
-		args = append(args, f.Status)
+	where, args, err := buildAuditWhereClauses(f)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	if len(f.OrgUnitIDs) > 0 {
-		var orgUUIDs []uuid.UUID
-		for _, id := range f.OrgUnitIDs {
-			u, err := uuid.Parse(id)
-			if err == nil {
-				orgUUIDs = append(orgUUIDs, u)
-			}
-		}
-		whereClauses = append(whereClauses, "org_unit_id IN (?)")
-		args = append(args, orgUUIDs)
-	}
-
-	where := strings.Join(whereClauses, " AND ")
-
-	// Count total
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM inout_events WHERE %s", where)
+	countQuery := auditCountQueryPrefix + where
 	var totalCount uint64
 	if err := r.chConn.QueryRow(ctx, countQuery, args...).Scan(&totalCount); err != nil {
 		return nil, 0, err
 	}
 
-	// Paginated results
 	offset := (f.Page - 1) * f.PageSize
-	selectQuery := fmt.Sprintf(`
-		SELECT id, employee_id, door_id, direction, event_time,
-		       status, reason, COALESCE(card_uid,''), COALESCE(source_ip,'')
-		FROM inout_events
-		WHERE %s
-		ORDER BY event_time DESC
-		LIMIT ? OFFSET ?`, where)
+	selectQuery := auditSelectQueryPrefix + where + auditSelectQuerySuffix
 
 	allArgs := make([]interface{}, len(args))
 	copy(allArgs, args)
@@ -166,6 +122,63 @@ func (r *chInOutRepository) GetAuditEvents(ctx context.Context, f AuditFilter) (
 		return nil, 0, err
 	}
 	return events, int(totalCount), nil
+}
+
+const (
+	auditDateRangeClause   = "event_time >= toDateTime64(?, 3, 'UTC') AND event_time < addDays(toDateTime64(?, 3, 'UTC'), 1)"
+	auditEmployeeClause    = "employee_id = ?"
+	auditDoorClause        = "door_id = ?"
+	auditStatusClause      = "status = ?"
+	auditOrgUnitInClause   = "org_unit_id IN (?)"
+	auditCountQueryPrefix  = "SELECT COUNT(*) FROM inout_events WHERE "
+	auditSelectQueryPrefix = `
+		SELECT id, employee_id, door_id, direction, event_time,
+		       status, reason, COALESCE(card_uid,''), COALESCE(source_ip,'')
+		FROM inout_events
+		WHERE `
+	auditSelectQuerySuffix = `
+		ORDER BY event_time DESC
+		LIMIT ? OFFSET ?`
+)
+
+func buildAuditWhereClauses(f AuditFilter) (string, []interface{}, error) {
+	clauses := []string{auditDateRangeClause}
+	args := []interface{}{f.StartDate, f.EndDate}
+
+	if f.EmployeeID != "" {
+		empUUID, err := uuid.Parse(f.EmployeeID)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid employee id: %w", err)
+		}
+		clauses = append(clauses, auditEmployeeClause)
+		args = append(args, empUUID)
+	}
+	if f.DoorID != "" {
+		doorUUID, err := uuid.Parse(f.DoorID)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid door id: %w", err)
+		}
+		clauses = append(clauses, auditDoorClause)
+		args = append(args, doorUUID)
+	}
+	if f.Status != "" {
+		clauses = append(clauses, auditStatusClause)
+		args = append(args, f.Status)
+	}
+
+	if len(f.OrgUnitIDs) > 0 {
+		var orgUUIDs []uuid.UUID
+		for _, id := range f.OrgUnitIDs {
+			u, err := uuid.Parse(id)
+			if err == nil {
+				orgUUIDs = append(orgUUIDs, u)
+			}
+		}
+		clauses = append(clauses, auditOrgUnitInClause)
+		args = append(args, orgUUIDs)
+	}
+
+	return strings.Join(clauses, " AND "), args, nil
 }
 
 // GetEventsForExport returns all events for an org-unit subtree in a date range (no pagination) from ClickHouse.
