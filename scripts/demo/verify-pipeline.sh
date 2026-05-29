@@ -14,6 +14,7 @@ if [ -n "${REDIS_ADDR:-}" ]; then
 fi
 
 
+API_KEY="${API_KEY:-dev-api-key-2026}"
 API="${API_URL:-http://localhost:8080}"
 USER_ID="${DEMO_USER:-22222222-2222-2222-2222-222222222222}"
 DOOR="${DEMO_DOOR:-11111111-1111-1111-1111-111111111111}"
@@ -23,7 +24,7 @@ POLL_TIMEOUT="${POLL_TIMEOUT:-30}"
 require_service() {
   local name="$1" url="$2"
   # Prefer HTTP health check (works for both GKE and local docker)
-  if curl -sf --max-time 5 "${url}/access/door/11111111-1111-1111-1111-111111111111/status" >/dev/null 2>&1 || \
+  if curl -sf -H "X-API-Key: ${API_KEY}" --max-time 5 "${url}/access/door/11111111-1111-1111-1111-111111111111/status" >/dev/null 2>&1 || \
      curl -sf --max-time 5 "${url}/health" >/dev/null 2>&1 || \
      curl -sf --max-time 5 "${url}" >/dev/null 2>&1; then
     return 0
@@ -51,12 +52,12 @@ redis_cmd() {
   fi
 }
 
-redis_cmd DEL "passback:${USER_ID}" >/dev/null
-echo "Cleared passback:${USER_ID}"
+redis_cmd DEL "passback:${USER_ID}" >/dev/null || true
+echo "Cleared passback:${USER_ID} (if Redis was reachable)"
 echo
 
 echo ">>> POST /access/swipe (IN)"
-RESP=$(curl -sf -X POST "${API}/access/swipe" \
+RESP=$(curl -sf -H "X-API-Key: ${API_KEY}" -X POST "${API}/access/swipe" \
   -H "Content-Type: application/json" \
   -d "{\"userId\":\"${USER_ID}\",\"doorId\":\"${DOOR}\",\"direction\":\"IN\",\"cardUid\":\"CARD001\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}")
 echo "$RESP" | jq .
@@ -72,9 +73,13 @@ fi
 ch_query() {
   local q="$1"
   if [[ -n "${CLICKHOUSE_ADDR:-}" && "${CLICKHOUSE_ADDR}" != *"localhost"* ]]; then
-    # Cloud ClickHouse via HTTPS
+    # Cloud ClickHouse via HTTPS. Use HTTPS port 8443 (GCP/ClickHouse Cloud standard) instead of TCP native port 9440/9000
+    local ch_http_addr=$(echo "${CLICKHOUSE_ADDR}" | sed 's/:9440/:8443/; s/:9000/:8443/')
+    if [[ "${ch_http_addr}" != *":"* ]]; then
+      ch_http_addr="${ch_http_addr}:8443"
+    fi
     curl -sf --max-time 15 \
-      "https://${CLICKHOUSE_ADDR}/?database=access_control&query=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1]))" "$q" 2>/dev/null || printf '%s' "$q" | sed 's/ /+/g;s/=/%3D/g')" \
+      "https://${ch_http_addr}/?database=access_control&query=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1]))" "$q" 2>/dev/null || printf '%s' "$q" | sed 's/ /+/g;s/=/%3D/g')" \
       -u "${CLICKHOUSE_USER:-default}:${CLICKHOUSE_PASSWORD:-}" 2>/dev/null
   else
     docker compose exec -T clickhouse clickhouse-client \

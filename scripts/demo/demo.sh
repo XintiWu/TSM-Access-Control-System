@@ -24,7 +24,7 @@ BAN_WAIT="${BAN_WAIT:-3}"
 swipe() {
   local user="$1" dir="$2"
   echo ">>> Swipe ${dir} (user=${user})"
-  curl -s -X POST "${API}/access/swipe" \
+  curl -s -H "X-API-Key: ${API_KEY:-dev-api-key-2026}" -X POST "${API}/access/swipe" \
     -H "Content-Type: application/json" \
     -d "{\"userId\":\"${user}\",\"doorId\":\"${DOOR}\",\"direction\":\"${dir}\",\"cardUid\":\"CARD001\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" | jq .
   echo
@@ -32,6 +32,12 @@ swipe() {
 
 echo "=== Access Fast Path Demo ==="
 echo
+# Clear passback state beforehand so the run is reproducible
+if command -v redis-cli >/dev/null 2>&1; then
+  redis-cli -h "${REDIS_HOST:-localhost}" -p "${REDIS_PORT:-6379}" DEL "passback:${USER_ID}" >/dev/null || true
+else
+  docker compose exec -T redis redis-cli DEL "passback:${USER_ID}" >/dev/null || true
+fi
 
 swipe "$USER_ID" "IN"
 echo "Expected: ALLOW"
@@ -46,15 +52,15 @@ echo "Expected: ALLOW"
 echo
 
 echo ">>> Ban user via Admin API (then swipe)"
-curl -sf -X POST "${ADMIN_API}/admin/employees/${BANNED_ID}/ban" | jq .
+curl -sf -H "X-API-Key: ${API_KEY:-dev-api-key-2026}" -X POST "${ADMIN_API}/admin/employees/${BANNED_ID}/ban" | jq .
 sleep "$BAN_WAIT"
 swipe "$BANNED_ID" "IN"
 echo "Expected: DENY (PERMISSION_DENIED)"
 echo
 
 echo ">>> Employee state"
-curl -s "${API}/access/employee/${USER_ID}/state" | jq .
+curl -s -H "X-API-Key: ${API_KEY:-dev-api-key-2026}" "${API}/access/employee/${USER_ID}/state" | jq .
 echo
 
 echo ">>> Door status"
-curl -s "${API}/access/door/${DOOR}/status" | jq .
+curl -s -H "X-API-Key: ${API_KEY:-dev-api-key-2026}" "${API}/access/door/${DOOR}/status" | jq .

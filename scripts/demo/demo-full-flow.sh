@@ -15,6 +15,7 @@ if [ -n "${REDIS_ADDR:-}" ]; then
 fi
 
 
+API_KEY="${API_KEY:-dev-api-key-2026}"
 API="${API_URL:-${API:-http://localhost:8080}}"
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 TODAY=$(date +%Y-%m-%d)
@@ -50,7 +51,7 @@ redis_del_passback() {
 
 swipe() {
   local user="$1" door="$2" dir="$3" card="$4"
-  curl -sf -X POST "${API}/access/swipe" \
+  curl -sf -H "X-API-Key: ${API_KEY}" -X POST "${API}/access/swipe" \
     -H "Content-Type: application/json" \
     -d "{\"userId\":\"${user}\",\"doorId\":\"${door}\",\"direction\":\"${dir}\",\"cardUid\":\"${card}\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" >/dev/null
 }
@@ -61,9 +62,20 @@ echo "============================================"
 
 echo ""
 echo ">>> [1/5] 健康檢查"
-curl -sf "${API}/health" | jq -e '.status == "ok"' >/dev/null
-curl -sf "${REPORT_URL}/health" | jq -e '.status == "ok"' >/dev/null
-echo "  access-api / report-api OK"
+if curl -sf -H "X-API-Key: ${API_KEY}" "${API}/access/door/11111111-1111-1111-1111-111111111111/status" >/dev/null 2>&1 || \
+   curl -sf "${API}/health" >/dev/null 2>&1; then
+  echo "  access-api OK"
+else
+  echo "ERROR: access-api unreachable" >&2
+  exit 1
+fi
+if curl -sf "${REPORT_URL}/ui/" >/dev/null 2>&1 || \
+   curl -sf "${REPORT_URL}/health" >/dev/null 2>&1; then
+  echo "  report-api OK"
+else
+  echo "ERROR: report-api unreachable" >&2
+  exit 1
+fi
 
 echo ""
 echo ">>> [2/5] 模擬大量人流（多員工 × 多門 × IN/OUT 交替）"
@@ -94,10 +106,12 @@ echo ">>> [3/5] 等待 aggregation-worker 寫入 ClickHouse（15s）"
 sleep 15
 # Query ClickHouse: prefer cloud HTTP interface, fall back to local docker compose
 if [[ -n "${CLICKHOUSE_ADDR:-}" && "${CLICKHOUSE_ADDR}" != *"localhost"* ]]; then
-  CH_HOST="${CLICKHOUSE_ADDR%:*}"
-  CH_PORT="${CLICKHOUSE_ADDR#*:}"
+  ch_http_addr=$(echo "${CLICKHOUSE_ADDR}" | sed 's/:9440/:8443/; s/:9000/:8443/')
+  if [[ "${ch_http_addr}" != *":"* ]]; then
+    ch_http_addr="${ch_http_addr}:8443"
+  fi
   EVENTS=$(curl -sf --max-time 10 \
-    "https://${CLICKHOUSE_ADDR}/?query=SELECT+count()+FROM+access_control.inout_events+WHERE+toDate(event_time)%3Dtoday()" \
+    "https://${ch_http_addr}/?query=SELECT+count()+FROM+access_control.inout_events+WHERE+toDate(event_time)%3Dtoday()" \
     -u "${CLICKHOUSE_USER:-default}:${CLICKHOUSE_PASSWORD:-}" 2>/dev/null || echo "?")
 else
   EVENTS=$(docker compose exec -T clickhouse clickhouse-client --password "${CLICKHOUSE_PASSWORD:-password123}" \
@@ -108,28 +122,28 @@ echo "  今日 inout_events 筆數: ${EVENTS}"
 echo ""
 echo ">>> [4/5] 報表 API（JSON）"
 echo "  --- 部門摘要（課長 / monthly）---"
-curl -sf -H "X-User-ID: ${MANAGER_ID}" \
+curl -sf -H "X-API-Key: ${API_KEY}" -H "X-User-ID: ${MANAGER_ID}" \
   "${REPORT_URL}/reports/department?orgUnitId=${TEAM_ORG}&startDate=${MONTH_START}&endDate=${TODAY}&granularity=monthly" \
   | jq '{orgUnitName, summary, periodCount: (.periods | length)}'
 
 echo "  --- 門禁熱點（CEO / 近 1h）---"
-curl -sf -H "X-User-ID: ${CEO_ID}" \
+curl -sf -H "X-API-Key: ${API_KEY}" -H "X-User-ID: ${CEO_ID}" \
   "${REPORT_URL}/reports/analytics/door-heatmap?minutes=60" \
   | jq '{windowMinutes, topDoor: .doors[0]}'
 
 echo "  --- 考勤趨勢（CEO / 全公司 / daily）---"
-curl -sf -H "X-User-ID: ${CEO_ID}" \
+curl -sf -H "X-API-Key: ${API_KEY}" -H "X-User-ID: ${CEO_ID}" \
   "${REPORT_URL}/reports/analytics/attendance-trends?orgUnitId=${CORP_ORG}&startDate=${MONTH_START}&endDate=${TODAY}&granularity=daily" \
   | jq '{points: (.series | length), last: .series[-1]}'
 
 echo ""
 echo ">>> [5/5] 匯出檔案"
-curl -sf -H "X-User-ID: ${MANAGER_ID}" \
+curl -sf -H "X-API-Key: ${API_KEY}" -H "X-User-ID: ${MANAGER_ID}" \
   "${REPORT_URL}/reports/export?orgUnitId=${TEAM_ORG}&startDate=${MONTH_START}&endDate=${TODAY}&format=csv&type=events" \
   -o ./report_demo.csv
 echo "  CSV: report_demo.csv ($(wc -l < ./report_demo.csv | tr -d ' ') lines)"
 
-curl -sf -H "X-User-ID: ${MANAGER_ID}" \
+curl -sf -H "X-API-Key: ${API_KEY}" -H "X-User-ID: ${MANAGER_ID}" \
   "${REPORT_URL}/reports/export?orgUnitId=${TEAM_ORG}&startDate=${MONTH_START}&endDate=${TODAY}&format=pdf&type=department" \
   -o ./report_demo.pdf
 echo "  PDF: report_demo.pdf ($(wc -c < ./report_demo.pdf | tr -d ' ') bytes)"

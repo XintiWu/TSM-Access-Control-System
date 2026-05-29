@@ -15,6 +15,7 @@ if [ -n "${REDIS_ADDR:-}" ]; then
 fi
 
 
+API_KEY="${API_KEY:-dev-api-key-2026}"
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 MANAGER="${MANAGER:-cccccccc-cccc-cccc-cccc-cccccccccccc}"
 ORG="${ORG:-a0000000-0000-0000-0000-000000000003}"
@@ -53,7 +54,7 @@ bench_one() {
   echo "--- ${name} (${ITERATIONS} requests) ---"
   for ((i=0; i<ITERATIONS; i++)); do
     local t_ms
-    t_ms=$(curl -sf -o /dev/null -H "X-User-ID: ${MANAGER}" \
+    t_ms=$(curl -sf -H "X-API-Key: ${API_KEY}" -o /dev/null -H "X-User-ID: ${MANAGER}" \
       -w '%{time_total}' "${REPORT_URL}${path}" 2>/dev/null | awk '{printf "%.0f", $1*1000}') || { errors=$((errors+1)); continue; }
     ms_samples+=("$t_ms")
   done

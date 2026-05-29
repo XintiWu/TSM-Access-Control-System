@@ -21,6 +21,7 @@ if [ -n "${REDIS_ADDR:-}" ]; then
   REDIS_PORT="${REDIS_ADDR#*:}"
 fi
 
+API_KEY="${API_KEY:-dev-api-key-2026}"
 API_URL="${API_URL:-http://localhost:8080}"
 REPORT_URL="${REPORT_URL:-http://localhost:8082}"
 MANAGER="${MANAGER:-cccccccc-cccc-cccc-cccc-cccccccccccc}"
@@ -187,6 +188,7 @@ else
 fi
 
 raw_fast=$(collect_samples "$FAST_N" "/access/swipe" \
+  -H "X-API-Key: ${API_KEY}" \
   -X POST "${API_URL}/access/swipe" \
   -H "Content-Type: application/json" \
   -d "{\"userId\":\"22222222-2222-2222-2222-222222222222\",\"doorId\":\"11111111-1111-1111-1111-111111111111\",\"direction\":\"IN\",\"cardUid\":\"CARD001\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}")
@@ -254,6 +256,7 @@ echo
 for ep in "${endpoints[@]}"; do
   IFS='|' read -r ep_name ep_path <<< "$ep"
   raw=$(collect_samples "$REPORT_N" "$ep_name" \
+    -H "X-API-Key: ${API_KEY}" \
     -H "X-User-ID: ${MANAGER}" \
     "${REPORT_URL}${ep_path}") || true
 

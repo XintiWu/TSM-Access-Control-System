@@ -22,6 +22,7 @@ if command -v redis-cli >/dev/null 2>&1; then
 else
   REDIS="docker compose exec -T redis redis-cli"
 fi
+API_KEY="${API_KEY:-dev-api-key-2026}"
 MANAGER="${MANAGER:-cccccccc-cccc-cccc-cccc-cccccccccccc}"
 ORG="${ORG:-a0000000-0000-0000-0000-000000000003}"
 USER_SWIPE="${USER_SWIPE:-22222222-2222-2222-2222-222222222222}"
@@ -34,12 +35,12 @@ CACHE_KEY="report:dept:${ORG}:${MONTH}:${TODAY}:daily"
 hdr() { echo ""; echo "=== $1 ==="; }
 
 fetch_entries() {
-  curl -sf -H "X-User-ID: ${MANAGER}" \
+  curl -sf -H "X-API-Key: ${API_KEY}" -H "X-User-ID: ${MANAGER}" \
     "${REPORT_URL}/reports/department?${QUERY}" | jq -r '.summary.totalEntries'
 }
 
 fetch_ms() {
-  curl -sf -o /dev/null -H "X-User-ID: ${MANAGER}" \
+  curl -sf -H "X-API-Key: ${API_KEY}" -o /dev/null -H "X-User-ID: ${MANAGER}" \
     -w '%{time_total}' "${REPORT_URL}/reports/department?${QUERY}"
 }
 
@@ -57,7 +58,7 @@ if [[ "$E1" != "$E2" ]]; then
 fi
 
 hdr "3) New swipe then immediate report (cache may still show old totals)"
-curl -sf -X POST "${ACCESS_URL}/access/swipe" -H "Content-Type: application/json" -d "{
+curl -sf -H "X-API-Key: ${API_KEY}" -X POST "${ACCESS_URL}/access/swipe" -H "Content-Type: application/json" -d "{
   \"userId\": \"${USER_SWIPE}\",
   \"doorId\": \"${DOOR}\",
   \"direction\": \"IN\",
