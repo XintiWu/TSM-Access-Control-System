@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"math"
 	"time"
 
@@ -20,18 +20,18 @@ import (
 
 // ReportService implements the business logic for all report endpoints.
 type ReportService struct {
-	orgRepo    *repository.OrgRepository
-	reportRepo *repository.ReportRepository
-	inoutRepo  *repository.InOutRepository
+	orgRepo    repository.OrgRepository
+	reportRepo repository.ReportRepository
+	inoutRepo  repository.InOutRepository
 	cache      *cache.ReportCache
 	jobs       *export.JobStore
 }
 
 // NewReportService creates a new ReportService with all required dependencies.
 func NewReportService(
-	orgRepo *repository.OrgRepository,
-	reportRepo *repository.ReportRepository,
-	inoutRepo *repository.InOutRepository,
+	orgRepo repository.OrgRepository,
+	reportRepo repository.ReportRepository,
+	inoutRepo repository.InOutRepository,
 	reportCache *cache.ReportCache,
 	jobs *export.JobStore,
 ) *ReportService {
@@ -52,10 +52,12 @@ func NewReportService(
 func (s *ReportService) GetPersonalReport(ctx context.Context, userID, startDate, endDate string) (*model.PersonalReportResponse, error) {
 	// Check cache first
 	cacheKey := fmt.Sprintf("report:personal:%s:%s:%s", userID, startDate, endDate)
-	if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-		var resp model.PersonalReportResponse
-		if json.Unmarshal(cached, &resp) == nil {
-			return &resp, nil
+	if s.cache != nil {
+		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
+			var resp model.PersonalReportResponse
+			if json.Unmarshal(cached, &resp) == nil {
+				return &resp, nil
+			}
 		}
 	}
 
@@ -119,9 +121,11 @@ func (s *ReportService) GetPersonalReport(ctx context.Context, userID, startDate
 	}
 
 	// Write to cache (best-effort)
-	if data, err := json.Marshal(resp); err == nil {
-		if err := s.cache.Set(ctx, cacheKey, data); err != nil {
-			log.Printf("cache set personal report: %v", err)
+	if s.cache != nil {
+		if data, err := json.Marshal(resp); err == nil {
+			if err := s.cache.Set(ctx, cacheKey, data); err != nil {
+				slog.Warn("cache set personal report failed", "error", err)
+			}
 		}
 	}
 
@@ -152,10 +156,12 @@ func (s *ReportService) GetDepartmentReport(ctx context.Context, req model.Depar
 
 	// Check cache
 	cacheKey := fmt.Sprintf("report:dept:%s:%s:%s:%s", req.OrgUnitID, req.StartDate, req.EndDate, granularity)
-	if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-		var resp model.DepartmentReportResponse
-		if json.Unmarshal(cached, &resp) == nil {
-			return &resp, nil
+	if s.cache != nil {
+		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
+			var resp model.DepartmentReportResponse
+			if json.Unmarshal(cached, &resp) == nil {
+				return &resp, nil
+			}
 		}
 	}
 
@@ -230,9 +236,11 @@ func (s *ReportService) GetDepartmentReport(ctx context.Context, req model.Depar
 	}
 
 	// Write to cache
-	if data, err := json.Marshal(resp); err == nil {
-		if err := s.cache.Set(ctx, cacheKey, data); err != nil {
-			log.Printf("cache set dept report: %v", err)
+	if s.cache != nil {
+		if data, err := json.Marshal(resp); err == nil {
+			if err := s.cache.Set(ctx, cacheKey, data); err != nil {
+				slog.Warn("cache set dept report failed", "error", err)
+			}
 		}
 	}
 

@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"log"
+	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -63,7 +63,7 @@ func (s *AccessDecisionService) Evaluate(ctx context.Context, userID, cardUID st
 			if s.db != nil {
 				dbUser, dbErr := s.db.LookupCardUID(ctx, cardUID)
 				if dbErr != nil {
-					log.Printf("card lookup DB fallback failed: %v", dbErr)
+					slog.Warn("card lookup DB fallback failed", "error", dbErr)
 					// If Redis returned error (not just miss), we can fail-open or fail-safe.
 					// But if it's a cache miss, DB is the source of truth.
 				} else if dbUser != "" {
@@ -117,7 +117,7 @@ func (s *AccessDecisionService) evaluateFallback(ctx context.Context, userID str
 	}
 
 	fallbackTotal.Inc()
-	log.Printf("redis unavailable, falling back to DB for userId=%s (degraded)", userID)
+	slog.Warn("redis unavailable, falling back to DB (degraded)", "userId", userID)
 
 	active, err := s.db.IsActive(ctx, userID)
 	if err != nil {

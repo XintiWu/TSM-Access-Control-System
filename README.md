@@ -144,18 +144,18 @@ make demo-full
 
 ## Services and ports
 
-| Service | Port | URL |
-|---------|------|-----|
-| access-api | 8080 | http://localhost:8080 |
-| admin-api | 8081 | http://localhost:8081 |
-| report-api | 8082 | http://localhost:8082 |
-| Report charts UI | 8082 | http://localhost:8082/ui/ |
-| Grafana | 3001 | http://localhost:3001 (`admin` / `admin`) |
-| Prometheus | 9090 | http://localhost:9090 |
-| ClickHouse HTTP | 8123 | http://localhost:8123 |
-| ClickHouse native | 9000 | localhost:9000 |
-| Redis | 6379 | localhost:6379 |
-| Kafka | 9092 | localhost:9092 |
+| Service | Local Dev URL | GCP Production URL (GKE) | Description / Notes |
+|---------|---------------|--------------------------|---------------------|
+| **access-api** | `http://localhost:8080` | `https://api.8.233.250.204.nip.io/access` | Door swipe & decision path |
+| **admin-api** | `http://localhost:8081` | `https://api.8.233.250.204.nip.io/admin` | Ban/unban management |
+| **report-api** | `http://localhost:8082` | `https://api.8.233.250.204.nip.io/reports` | REST Reporting APIs |
+| **Report charts UI** | `http://localhost:8082/ui/` | `https://api.8.233.250.204.nip.io/ui/` | Role-based Dashboard UI |
+| **Grafana** | `http://localhost:3001` | `https://8.233.250.204.nip.io/` | Managed Service for Grafana |
+| **Prometheus** | `http://localhost:9090` | *Internal (GCP GMP / Monarch)* | Metric storage engine |
+| **ClickHouse HTTP** | `http://localhost:8123` | `https://xxxxxx.gcp.clickhouse.cloud` | ClickHouse Cloud HTTP endpoint |
+| **ClickHouse native** | `localhost:9000` | *GCP ClickHouse Cloud native* | ClickHouse Cloud TCP port |
+| **Redis** | `localhost:6379` | *Internal GKE service* | Fast cache & state store |
+| **Kafka** | `localhost:9092` | *Internal GKE service* | Async event buffer queue |
 
 ---
 
@@ -441,12 +441,12 @@ Rules enforced in report-api:
 
 Starts with `make up` under `monitoring/`.
 
-| Component | URL |
-|-----------|-----|
-| Grafana | http://localhost:3001 |
-| Prometheus | http://localhost:9090 |
-| access-api metrics | http://localhost:8080/metrics |
-| report-api metrics | http://localhost:8082/metrics |
+| Component | Local Dev URL | GCP Production URL (GKE) |
+|-----------|---------------|--------------------------|
+| **Grafana** | `http://localhost:3001` | `https://8.233.250.204.nip.io/` |
+| **Prometheus** | `http://localhost:9090` | *Internal (GCP GMP / Monarch)* |
+| **access-api metrics** | `http://localhost:8080/metrics` | *Internal GKE endpoint (port 8080)* |
+| **report-api metrics** | `http://localhost:8082/metrics` | *Internal GKE endpoint (port 8082)* |
 
 **Grafana folder:** `Access Control`
 

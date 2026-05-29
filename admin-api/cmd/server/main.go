@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +18,9 @@ import (
 )
 
 func main() {
+	// Configure global slog JSON logger
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	cfg := config.Load()
 
 	var repo *repository.EmployeeRepository
@@ -27,11 +30,12 @@ func main() {
 		if err == nil {
 			break
 		}
-		log.Printf("waiting for database: %v", err)
+		slog.Warn("waiting for database", "error", err, "attempt", i+1)
 		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		slog.Error("database connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer repo.Close()
 
@@ -65,9 +69,10 @@ func main() {
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}
 
 	go func() {
-		log.Printf("admin-api listening on %s", cfg.HTTPAddr)
+		slog.Info("admin-api listening", "addr", cfg.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			slog.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -78,6 +83,6 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("shutdown: %v", err)
+		slog.Error("shutdown error", "error", err)
 	}
 }

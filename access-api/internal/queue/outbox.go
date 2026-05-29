@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -70,7 +70,7 @@ func (o *FileOutbox) Replay(ctx context.Context, publish func(context.Context, m
 		}
 		var ev model.InOutEvent
 		if err := json.Unmarshal(line, &ev); err != nil {
-			log.Printf("outbox skip bad line: %v", err)
+			slog.Error("outbox skip bad line", "error", err)
 			continue
 		}
 		pending = append(pending, ev)

@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,7 +23,7 @@ var (
 )
 
 // StartPassbackPoller periodically refreshes passback deny gauges from ClickHouse.
-func StartPassbackPoller(ctx context.Context, repo *repository.ReportRepository, interval time.Duration) {
+func StartPassbackPoller(ctx context.Context, repo repository.ReportRepository, interval time.Duration) {
 	if interval < 5*time.Second {
 		interval = 15 * time.Second
 	}
@@ -41,10 +41,10 @@ func StartPassbackPoller(ctx context.Context, repo *repository.ReportRepository,
 	}()
 }
 
-func poll(ctx context.Context, repo *repository.ReportRepository) {
+func poll(ctx context.Context, repo repository.ReportRepository) {
 	rows, err := repo.GetPassbackDenyCountsLastMinute(ctx)
 	if err != nil {
-		log.Printf("passback metrics poll: %v", err)
+		slog.Error("passback metrics poll failed", "error", err)
 		return
 	}
 	passbackDeny1m.Reset()

@@ -13,13 +13,22 @@ import (
 	"github.com/tsmc/report-api/internal/model"
 )
 
-// InOutRepository handles raw inout_events queries using ClickHouse.
-type InOutRepository struct {
+// InOutRepository handles raw inout_events queries.
+type InOutRepository interface {
+	GetPersonalEvents(ctx context.Context, employeeID, startDate, endDate string) ([]model.InOutEvent, error)
+	GetAuditEvents(ctx context.Context, f AuditFilter) ([]model.InOutEvent, int, error)
+	GetEventsForExport(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.InOutEvent, error)
+	GetSecurityDenySummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.SecurityDenySummary, error)
+	GetEmployeeReportRows(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.EmployeeReportRow, error)
+	Close() error
+}
+
+type chInOutRepository struct {
 	chConn clickhouse.Conn
 }
 
 // NewInOutRepository opens a ClickHouse native TCP connection.
-func NewInOutRepository(chAddr, chUser, chPass string) (*InOutRepository, error) {
+func NewInOutRepository(chAddr, chUser, chPass string) (InOutRepository, error) {
 	var tlsConfig *tls.Config
 	if strings.Contains(chAddr, ":9440") {
 		tlsConfig = &tls.Config{
@@ -44,11 +53,11 @@ func NewInOutRepository(chAddr, chUser, chPass string) (*InOutRepository, error)
 		_ = chConn.Close()
 		return nil, err
 	}
-	return &InOutRepository{chConn: chConn}, nil
+	return &chInOutRepository{chConn: chConn}, nil
 }
 
 // GetPersonalEvents returns raw events for a single employee within a date range from ClickHouse.
-func (r *InOutRepository) GetPersonalEvents(ctx context.Context, employeeID, startDate, endDate string) ([]model.InOutEvent, error) {
+func (r *chInOutRepository) GetPersonalEvents(ctx context.Context, employeeID, startDate, endDate string) ([]model.InOutEvent, error) {
 	empUUID, err := uuid.Parse(employeeID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid employee id: %w", err)
@@ -83,7 +92,7 @@ type AuditFilter struct {
 }
 
 // GetAuditEvents returns paginated raw events with optional filters from ClickHouse.
-func (r *InOutRepository) GetAuditEvents(ctx context.Context, f AuditFilter) ([]model.InOutEvent, int, error) {
+func (r *chInOutRepository) GetAuditEvents(ctx context.Context, f AuditFilter) ([]model.InOutEvent, int, error) {
 	var whereClauses []string
 	var args []interface{}
 
@@ -160,7 +169,7 @@ func (r *InOutRepository) GetAuditEvents(ctx context.Context, f AuditFilter) ([]
 }
 
 // GetEventsForExport returns all events for an org-unit subtree in a date range (no pagination) from ClickHouse.
-func (r *InOutRepository) GetEventsForExport(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.InOutEvent, error) {
+func (r *chInOutRepository) GetEventsForExport(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.InOutEvent, error) {
 	if len(orgUnitIDs) == 0 {
 		return nil, nil
 	}
@@ -219,7 +228,7 @@ func scanEvents(rows driver.Rows) ([]model.InOutEvent, error) {
 }
 
 // GetSecurityDenySummary counts anti-passback and permission-denied events in range.
-func (r *InOutRepository) GetSecurityDenySummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.SecurityDenySummary, error) {
+func (r *chInOutRepository) GetSecurityDenySummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.SecurityDenySummary, error) {
 	var out model.SecurityDenySummary
 	if len(orgUnitIDs) == 0 {
 		return out, nil
@@ -247,7 +256,7 @@ func (r *InOutRepository) GetSecurityDenySummary(ctx context.Context, orgUnitIDs
 }
 
 // GetEmployeeReportRows aggregates per-employee swipe, hours, and deny counts.
-func (r *InOutRepository) GetEmployeeReportRows(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.EmployeeReportRow, error) {
+func (r *chInOutRepository) GetEmployeeReportRows(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.EmployeeReportRow, error) {
 	if len(orgUnitIDs) == 0 {
 		return nil, nil
 	}
@@ -315,6 +324,6 @@ func (r *InOutRepository) GetEmployeeReportRows(ctx context.Context, orgUnitIDs 
 }
 
 // Close closes the database connection.
-func (r *InOutRepository) Close() error {
+func (r *chInOutRepository) Close() error {
 	return r.chConn.Close()
 }

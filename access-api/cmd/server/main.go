@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,27 +21,32 @@ import (
 )
 
 func main() {
+	// Configure global slog JSON logger
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	cfg := config.Load()
 
 	redisCache := cache.NewRedisCache(cfg.RedisAddr)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := redisCache.Ping(ctx); err != nil {
-		log.Fatalf("redis ping failed: %v", err)
+		slog.Error("redis ping failed", "error", err)
+		os.Exit(1)
 	}
 
 	outbox, err := queue.NewFileOutbox(cfg.OutboxDir)
 	if err != nil {
-		log.Fatalf("outbox: %v", err)
+		slog.Error("outbox initialization failed", "error", err)
+		os.Exit(1)
 	}
 	publisher := queue.NewKafkaProducerWithOutbox(cfg.KafkaBrokers, cfg.KafkaTopic, outbox)
 	defer publisher.Close()
 
 	replayCtx, replayCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	if n, err := publisher.ReplayOutbox(replayCtx); err != nil {
-		log.Printf("WARNING: outbox replay: %v", err)
+		slog.Warn("outbox replay warning", "error", err)
 	} else if n > 0 {
-		log.Printf("replayed %d events from outbox", n)
+		slog.Info("replayed events from outbox", "count", n)
 	}
 	replayCancel()
 
@@ -51,11 +56,11 @@ func main() {
 	if cfg.ClickHouseAddr != "" {
 		repo, err := repository.NewEmployeeRepository(cfg.ClickHouseAddr, cfg.ClickHouseUser, cfg.ClickHousePass)
 		if err != nil {
-			log.Printf("WARNING: DB fallback disabled — cannot connect to ClickHouse: %v", err)
+			slog.Warn("DB fallback disabled — cannot connect to ClickHouse", "error", err)
 		} else {
 			decisions.SetDBFallback(repo)
 			defer repo.Close()
-			log.Printf("ClickHouse fallback enabled for Redis-down resilience")
+			slog.Info("ClickHouse fallback enabled for Redis-down resilience")
 		}
 	}
 
@@ -89,9 +94,10 @@ func main() {
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}
 
 	go func() {
-		log.Printf("access-api listening on %s", cfg.HTTPAddr)
+		slog.Info("access-api listening", "addr", cfg.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			slog.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -102,6 +108,6 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("shutdown: %v", err)
+		slog.Error("shutdown error", "error", err)
 	}
 }

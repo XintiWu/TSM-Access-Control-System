@@ -35,11 +35,11 @@ var (
 // ReportHandler handles all report-related HTTP endpoints.
 type ReportHandler struct {
 	svc     *service.ReportService
-	orgRepo *repository.OrgRepository
+	orgRepo repository.OrgRepository
 }
 
 // NewReportHandler creates a new handler with service and org repository.
-func NewReportHandler(svc *service.ReportService, orgRepo *repository.OrgRepository) *ReportHandler {
+func NewReportHandler(svc *service.ReportService, orgRepo repository.OrgRepository) *ReportHandler {
 	return &ReportHandler{svc: svc, orgRepo: orgRepo}
 }
 

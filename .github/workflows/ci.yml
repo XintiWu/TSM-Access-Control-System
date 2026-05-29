@@ -132,10 +132,17 @@ jobs:
         run: |
           make verify-pipeline
 
-      # 6. 驗證 SLA 效能指標 (Performance SLA Validation)
-      - name: Verify Performance SLA
+      # 6. 驗證 SLA 效能指標 (Performance SLA Validation via k6)
+      - name: Setup k6
         run: |
-          make verify-performance
+          curl -L -s -o k6.tar.gz https://github.com/grafana/k6/releases/download/v0.51.0/k6-v0.51.0-linux-amd64.tar.gz
+          tar -xzf k6.tar.gz
+          sudo mv k6-v0.51.0-linux-amd64/k6 /usr/local/bin/k6
+          k6 version
+
+      - name: Verify Performance SLA (k6 Load Test)
+        run: |
+          make test-performance-k6
 
       # 7. 清理 Docker 容器
       - name: Shutdown Docker Compose

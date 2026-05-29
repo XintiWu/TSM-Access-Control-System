@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +14,9 @@ import (
 )
 
 func main() {
+	// Configure global slog JSON logger
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	cfg := config.Load()
 
 	var repo *repository.InOutRepository
@@ -23,11 +26,12 @@ func main() {
 		if err == nil {
 			break
 		}
-		log.Printf("waiting for database: %v", err)
+		slog.Warn("waiting for database", "error", err, "attempt", i+1)
 		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		slog.Error("database connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer repo.Close()
 
@@ -39,7 +43,7 @@ func main() {
 
 	go func() {
 		if err := w.Run(ctx); err != nil {
-			log.Printf("worker stopped: %v", err)
+			slog.Error("worker stopped with error", "error", err)
 		}
 	}()
 

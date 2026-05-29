@@ -16,7 +16,7 @@ type DoorHeatmapRow struct {
 }
 
 // GetDoorHeatmap returns per-door swipe counts in the last `minutes`, scoped to org subtree.
-func (r *ReportRepository) GetDoorHeatmap(ctx context.Context, orgUnitIDs []string, minutes int) ([]DoorHeatmapRow, error) {
+func (r *chReportRepository) GetDoorHeatmap(ctx context.Context, orgUnitIDs []string, minutes int) ([]DoorHeatmapRow, error) {
 	if minutes < 1 {
 		minutes = 60
 	}
@@ -69,7 +69,7 @@ type PeriodAttendanceMetrics struct {
 }
 
 // GetAttendanceTrends computes avg hours and late rate (first ALLOW IN after 09:00 UTC) per calendar day.
-func (r *ReportRepository) GetAttendanceTrends(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]PeriodAttendanceMetrics, error) {
+func (r *chReportRepository) GetAttendanceTrends(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]PeriodAttendanceMetrics, error) {
 	if len(orgUnitIDs) == 0 {
 		return nil, nil
 	}
@@ -128,15 +128,8 @@ func (r *ReportRepository) GetAttendanceTrends(ctx context.Context, orgUnitIDs [
 	return results, rows.Err()
 }
 
-// PassbackSpikeRow is used for security alerting metrics.
-type PassbackSpikeRow struct {
-	DoorID   string
-	DoorName string
-	Count    uint64
-}
-
 // GetPassbackDenyCountsLastMinute returns ANTI_PASSBACK deny counts per door in the last minute.
-func (r *ReportRepository) GetPassbackDenyCountsLastMinute(ctx context.Context) ([]PassbackSpikeRow, error) {
+func (r *chReportRepository) GetPassbackDenyCountsLastMinute(ctx context.Context) ([]PassbackDenyRow, error) {
 	since := time.Now().UTC().Add(-time.Minute)
 	query := `
 		SELECT
@@ -156,9 +149,9 @@ func (r *ReportRepository) GetPassbackDenyCountsLastMinute(ctx context.Context) 
 	}
 	defer rows.Close()
 
-	var out []PassbackSpikeRow
+	var out []PassbackDenyRow
 	for rows.Next() {
-		var row PassbackSpikeRow
+		var row PassbackDenyRow
 		if err := rows.Scan(&row.DoorID, &row.DoorName, &row.Count); err != nil {
 			return nil, err
 		}
@@ -236,7 +229,7 @@ func MergeTrendsIntoPeriods(periods []model.PeriodReport, daily []PeriodAttendan
 }
 
 // MaxPassbackCount returns the highest per-door ANTI_PASSBACK count in the last minute.
-func MaxPassbackCount(rows []PassbackSpikeRow) uint64 {
+func MaxPassbackCount(rows []PassbackDenyRow) uint64 {
 	var max uint64
 	for _, r := range rows {
 		if r.Count > max {

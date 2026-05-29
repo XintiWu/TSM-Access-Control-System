@@ -10,13 +10,30 @@ import (
 	"github.com/tsmc/report-api/internal/model"
 )
 
-// ReportRepository handles queries for aggregated reports using ClickHouse.
-type ReportRepository struct {
+// PassbackDenyRow holds one row from GetPassbackDenyCountsLastMinute.
+type PassbackDenyRow struct {
+	DoorID   string
+	DoorName string
+	Count    uint64
+}
+
+// ReportRepository handles queries for aggregated reports.
+type ReportRepository interface {
+	GetAggregated(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.AggregatedRow, error)
+	GetSummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.DepartmentSummary, error)
+	GetOnSiteCount(ctx context.Context, orgUnitIDs []string) (int, error)
+	GetDoorHeatmap(ctx context.Context, orgUnitIDs []string, minutes int) ([]DoorHeatmapRow, error)
+	GetAttendanceTrends(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]PeriodAttendanceMetrics, error)
+	GetPassbackDenyCountsLastMinute(ctx context.Context) ([]PassbackDenyRow, error)
+	Close() error
+}
+
+type chReportRepository struct {
 	chConn clickhouse.Conn
 }
 
 // NewReportRepository opens a ClickHouse native TCP connection.
-func NewReportRepository(chAddr, chUser, chPass string) (*ReportRepository, error) {
+func NewReportRepository(chAddr, chUser, chPass string) (ReportRepository, error) {
 	var tlsConfig *tls.Config
 	if strings.Contains(chAddr, ":9440") {
 		tlsConfig = &tls.Config{
@@ -41,11 +58,11 @@ func NewReportRepository(chAddr, chUser, chPass string) (*ReportRepository, erro
 		_ = chConn.Close()
 		return nil, err
 	}
-	return &ReportRepository{chConn: chConn}, nil
+	return &chReportRepository{chConn: chConn}, nil
 }
 
 // GetAggregated reads pre_aggregated_reports (MV-backed) and enriches with live avg hours per day.
-func (r *ReportRepository) GetAggregated(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.AggregatedRow, error) {
+func (r *chReportRepository) GetAggregated(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.AggregatedRow, error) {
 	if len(orgUnitIDs) == 0 {
 		return nil, nil
 	}
@@ -122,7 +139,7 @@ func (r *ReportRepository) GetAggregated(ctx context.Context, orgUnitIDs []strin
 }
 
 // GetSummary returns aggregated summary using pre_aggregated_reports plus live avg hours / late rate.
-func (r *ReportRepository) GetSummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.DepartmentSummary, error) {
+func (r *chReportRepository) GetSummary(ctx context.Context, orgUnitIDs []string, startDate, endDate string) (model.DepartmentSummary, error) {
 	var summary model.DepartmentSummary
 	if len(orgUnitIDs) == 0 {
 		return summary, nil
@@ -182,7 +199,7 @@ func (r *ReportRepository) GetSummary(ctx context.Context, orgUnitIDs []string, 
 }
 
 // GetOnSiteCount returns employees whose latest ALLOW swipe in the subtree is IN.
-func (r *ReportRepository) GetOnSiteCount(ctx context.Context, orgUnitIDs []string) (int, error) {
+func (r *chReportRepository) GetOnSiteCount(ctx context.Context, orgUnitIDs []string) (int, error) {
 	if len(orgUnitIDs) == 0 {
 		return 0, nil
 	}
@@ -203,7 +220,7 @@ func (r *ReportRepository) GetOnSiteCount(ctx context.Context, orgUnitIDs []stri
 }
 
 // getAggregatedLive scans inout_events when pre_aggregated_reports has no rows yet.
-func (r *ReportRepository) getAggregatedLive(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.AggregatedRow, error) {
+func (r *chReportRepository) getAggregatedLive(ctx context.Context, orgUnitIDs []string, startDate, endDate string) ([]model.AggregatedRow, error) {
 	query := `
 		SELECT
 			'' AS org_unit_id,
@@ -256,6 +273,6 @@ func (r *ReportRepository) getAggregatedLive(ctx context.Context, orgUnitIDs []s
 }
 
 // Close closes the database connection.
-func (r *ReportRepository) Close() error {
+func (r *chReportRepository) Close() error {
 	return r.chConn.Close()
 }

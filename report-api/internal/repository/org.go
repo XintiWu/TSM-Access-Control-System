@@ -11,13 +11,33 @@ import (
 	"github.com/tsmc/report-api/internal/model"
 )
 
-// OrgRepository handles queries against org_unit and employee in ClickHouse.
-type OrgRepository struct {
+// EmployeeInfo holds org placement and report role for authorization.
+type EmployeeInfo struct {
+	OrgUnitID  string
+	ReportRole string
+}
+
+// OrgRepository handles queries against org_unit and employee.
+type OrgRepository interface {
+	Ping(ctx context.Context) error
+	GetOrgUnit(ctx context.Context, id string) (*model.OrgUnit, error)
+	GetSubtreeIDs(ctx context.Context, orgUnitID string) ([]string, error)
+	GetEmployeeDisplayName(ctx context.Context, employeeID string) (string, error)
+	GetEmployeeInfo(ctx context.Context, employeeID string) (*EmployeeInfo, error)
+	GetEmployeeOrgUnitID(ctx context.Context, employeeID string) (string, error)
+	GetRootOrgUnitID(ctx context.Context) (string, error)
+	IsInSubtree(ctx context.Context, requesterOrgUnitID, targetOrgUnitID string) (bool, error)
+	CountActiveEmployees(ctx context.Context, orgUnitIDs []string) (int, error)
+	GetChildUnits(ctx context.Context, parentID string) ([]model.OrgUnit, error)
+	Close() error
+}
+
+type chOrgRepository struct {
 	chConn clickhouse.Conn
 }
 
 // NewOrgRepository opens a ClickHouse connection for org/employee queries.
-func NewOrgRepository(chAddr, chUser, chPass string) (*OrgRepository, error) {
+func NewOrgRepository(chAddr, chUser, chPass string) (OrgRepository, error) {
 	var tlsConfig *tls.Config
 	if strings.Contains(chAddr, ":9440") {
 		tlsConfig = &tls.Config{
@@ -42,15 +62,15 @@ func NewOrgRepository(chAddr, chUser, chPass string) (*OrgRepository, error) {
 		_ = chConn.Close()
 		return nil, err
 	}
-	return &OrgRepository{chConn: chConn}, nil
+	return &chOrgRepository{chConn: chConn}, nil
 }
 
-func (r *OrgRepository) Ping(ctx context.Context) error {
+func (r *chOrgRepository) Ping(ctx context.Context) error {
 	return r.chConn.Ping(ctx)
 }
 
 // GetOrgUnit returns a single org_unit by ID. Returns nil if not found.
-func (r *OrgRepository) GetOrgUnit(ctx context.Context, id string) (*model.OrgUnit, error) {
+func (r *chOrgRepository) GetOrgUnit(ctx context.Context, id string) (*model.OrgUnit, error) {
 	orgID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, err
@@ -84,7 +104,7 @@ func (r *OrgRepository) GetOrgUnit(ctx context.Context, id string) (*model.OrgUn
 }
 
 // GetSubtreeIDs returns all org_unit IDs under the given unit (inclusive).
-func (r *OrgRepository) GetSubtreeIDs(ctx context.Context, orgUnitID string) ([]string, error) {
+func (r *chOrgRepository) GetSubtreeIDs(ctx context.Context, orgUnitID string) ([]string, error) {
 	orgID, err := uuid.Parse(orgUnitID)
 	if err != nil {
 		return nil, err
@@ -114,14 +134,9 @@ func (r *OrgRepository) GetSubtreeIDs(ctx context.Context, orgUnitID string) ([]
 	return ids, rows.Err()
 }
 
-// EmployeeInfo holds org placement and report role for authorization.
-type EmployeeInfo struct {
-	OrgUnitID  string
-	ReportRole string
-}
 
 // GetEmployeeDisplayName returns the latest employee name from master data.
-func (r *OrgRepository) GetEmployeeDisplayName(ctx context.Context, employeeID string) (string, error) {
+func (r *chOrgRepository) GetEmployeeDisplayName(ctx context.Context, employeeID string) (string, error) {
 	id, err := uuid.Parse(employeeID)
 	if err != nil {
 		return "", err
@@ -136,7 +151,7 @@ func (r *OrgRepository) GetEmployeeDisplayName(ctx context.Context, employeeID s
 }
 
 // GetEmployeeInfo returns org_unit_id and report_role for the given employee.
-func (r *OrgRepository) GetEmployeeInfo(ctx context.Context, employeeID string) (*EmployeeInfo, error) {
+func (r *chOrgRepository) GetEmployeeInfo(ctx context.Context, employeeID string) (*EmployeeInfo, error) {
 	id, err := uuid.Parse(employeeID)
 	if err != nil {
 		return nil, err
@@ -164,7 +179,7 @@ func (r *OrgRepository) GetEmployeeInfo(ctx context.Context, employeeID string) 
 }
 
 // GetEmployeeOrgUnitID returns the org_unit_id for the given employee.
-func (r *OrgRepository) GetEmployeeOrgUnitID(ctx context.Context, employeeID string) (string, error) {
+func (r *chOrgRepository) GetEmployeeOrgUnitID(ctx context.Context, employeeID string) (string, error) {
 	info, err := r.GetEmployeeInfo(ctx, employeeID)
 	if err != nil {
 		return "", err
@@ -176,7 +191,7 @@ func (r *OrgRepository) GetEmployeeOrgUnitID(ctx context.Context, employeeID str
 }
 
 // GetRootOrgUnitID returns the company root (depth = 0), used for CEO/CFO scope hints.
-func (r *OrgRepository) GetRootOrgUnitID(ctx context.Context) (string, error) {
+func (r *chOrgRepository) GetRootOrgUnitID(ctx context.Context) (string, error) {
 	var id uuid.UUID
 	err := r.chConn.QueryRow(ctx, `
 		SELECT id FROM org_unit WHERE depth = 0 ORDER BY materialized_path LIMIT 1`).Scan(&id)
@@ -187,7 +202,7 @@ func (r *OrgRepository) GetRootOrgUnitID(ctx context.Context) (string, error) {
 }
 
 // IsInSubtree checks whether targetOrgUnitID is a descendant (or equal) of requesterOrgUnitID.
-func (r *OrgRepository) IsInSubtree(ctx context.Context, requesterOrgUnitID, targetOrgUnitID string) (bool, error) {
+func (r *chOrgRepository) IsInSubtree(ctx context.Context, requesterOrgUnitID, targetOrgUnitID string) (bool, error) {
 	reqID, err := uuid.Parse(requesterOrgUnitID)
 	if err != nil {
 		return false, err
@@ -211,7 +226,7 @@ func (r *OrgRepository) IsInSubtree(ctx context.Context, requesterOrgUnitID, tar
 }
 
 // CountActiveEmployees returns active headcount in the given org units (inclusive list).
-func (r *OrgRepository) CountActiveEmployees(ctx context.Context, orgUnitIDs []string) (int, error) {
+func (r *chOrgRepository) CountActiveEmployees(ctx context.Context, orgUnitIDs []string) (int, error) {
 	if len(orgUnitIDs) == 0 {
 		return 0, nil
 	}
@@ -232,7 +247,7 @@ func (r *OrgRepository) CountActiveEmployees(ctx context.Context, orgUnitIDs []s
 }
 
 // GetChildUnits returns the direct children of an org_unit.
-func (r *OrgRepository) GetChildUnits(ctx context.Context, parentID string) ([]model.OrgUnit, error) {
+func (r *chOrgRepository) GetChildUnits(ctx context.Context, parentID string) ([]model.OrgUnit, error) {
 	pid, err := uuid.Parse(parentID)
 	if err != nil {
 		return nil, err
@@ -264,6 +279,6 @@ func (r *OrgRepository) GetChildUnits(ctx context.Context, parentID string) ([]m
 	return units, rows.Err()
 }
 
-func (r *OrgRepository) Close() error {
+func (r *chOrgRepository) Close() error {
 	return r.chConn.Close()
 }

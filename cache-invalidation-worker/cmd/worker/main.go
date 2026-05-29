@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,13 +14,17 @@ import (
 )
 
 func main() {
+	// Configure global slog JSON logger
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	cfg := config.Load()
 
 	redisCache := cache.NewRedisCache(cfg.RedisAddr)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := redisCache.Ping(ctx); err != nil {
 		cancel()
-		log.Fatalf("redis ping failed: %v", err)
+		slog.Error("redis ping failed", "error", err)
+		os.Exit(1)
 	}
 	cancel()
 
@@ -32,7 +36,7 @@ func main() {
 
 	go func() {
 		if err := w.Run(runCtx); err != nil {
-			log.Printf("worker stopped: %v", err)
+			slog.Error("worker stopped with error", "error", err)
 		}
 	}()
 

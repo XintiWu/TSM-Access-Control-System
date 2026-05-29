@@ -3,7 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -96,7 +96,7 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 		publishCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := h.publisher.Publish(publishCtx, event); err != nil {
-			log.Printf("async publish eventId=%s: %v", eventID, err)
+			slog.Error("async publish failed", "eventId", eventID, "error", err)
 		}
 	}()
 

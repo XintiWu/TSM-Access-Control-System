@@ -135,7 +135,7 @@
             <div id="presentation-scaler" class="w-full h-full flex flex-col justify-between relative overflow-hidden">
                 <!-- Slide Contents Container -->
                 <div id="slides-container" class="relative flex-grow overflow-hidden h-full">
-                <div id="slides-track" class="flex flex-row h-full transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]" style="width: 1900%;">
+                <div id="slides-track" class="flex flex-row h-full transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]" style="width: 2100%;">
                 
                 <!-- Slide 1: Title -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-center items-center text-center h-full">
@@ -803,10 +803,137 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 12: HPA Scaling Demo -->
+                <!-- Slide 11: GKE HPA Configuration -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 11 / Scalability Demo</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 11 / GKE HPA Configuration</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">GCP (GKE) 上的 HPA 實作與配置</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto text-sm">
+                        <!-- Access API HPA -->
+                        <div class="bg-slate-50 border border-slate-200/80 p-5 rounded-2xl flex flex-col justify-between shadow-sm">
+                            <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-brand-indigo font-bold"><i class="fa-solid fa-bolt"></i> Access API 門禁決策服務 HPA</span>
+                                    <span class="px-2 py-0.5 rounded bg-indigo-50 text-brand-indigo text-xs font-bold border border-indigo-100">1 ~ 20 Pods</span>
+                                </div>
+                                <p class="text-brand-textSecondary leading-relaxed mb-3">
+                                    <strong>指標設定：</strong>平均 CPU 利用率達 <strong>70%</strong> 即觸發擴容。<br>
+                                    <strong>擴容特性：</strong>針對門禁刷卡高頻率、低延遲的特性，當交班峰值 (QPS > 1,400) 湧入時，能在數十秒內快速橫向擴充，確保開門決策在 50ms 內完成。
+                                </p>
+                            </div>
+                            <div class="bg-slate-900 text-slate-100 p-3 rounded-xl font-mono text-[11px] leading-tight overflow-x-auto shadow-inner">
+<span class="text-indigo-400">apiVersion</span>: autoscaling/v2
+<span class="text-indigo-400">kind</span>: HorizontalPodAutoscaler
+<span class="text-indigo-400">metadata</span>:
+  <span class="text-indigo-400">name</span>: access-api-hpa
+<span class="text-indigo-400">spec</span>:
+  <span class="text-indigo-400">scaleTargetRef</span>:
+    <span class="text-indigo-400">kind</span>: Deployment; <span class="text-indigo-400">name</span>: access-api
+  <span class="text-indigo-400">minReplicas</span>: 1; <span class="text-indigo-400">maxReplicas</span>: 20
+  <span class="text-indigo-400">metrics</span>:
+  - <span class="text-indigo-400">type</span>: Resource
+    <span class="text-indigo-400">resource</span>:
+      <span class="text-indigo-400">name</span>: cpu; <span class="text-indigo-400">target</span>: { <span class="text-indigo-400">type</span>: Utilization, <span class="text-indigo-400">averageUtilization</span>: 70 }
+                            </div>
+                        </div>
+
+                        <!-- Report API HPA -->
+                        <div class="bg-slate-50 border border-slate-200/80 p-5 rounded-2xl flex flex-col justify-between shadow-sm">
+                            <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-brand-teal font-bold"><i class="fa-solid fa-chart-line"></i> Report API 報表分析服務 HPA</span>
+                                    <span class="px-2 py-0.5 rounded bg-teal-50 text-brand-teal text-xs font-bold border border-teal-100">1 ~ 10 Pods</span>
+                                </div>
+                                <p class="text-brand-textSecondary leading-relaxed mb-3">
+                                    <strong>指標設定：</strong>平均 CPU 利用率達 <strong>75%</strong> 即觸發擴容。<br>
+                                    <strong>擴容特性：</strong>主要應對主管在特定時段（如月底結算考勤）發起的大型 ClickHouse 聚合查詢與 PDF 報表匯出，保護系統不因複雜讀取查詢而崩潰。
+                                </p>
+                            </div>
+                            <div class="bg-slate-900 text-slate-100 p-3 rounded-xl font-mono text-[11px] leading-tight overflow-x-auto shadow-inner">
+<span class="text-teal-400">apiVersion</span>: autoscaling/v2
+<span class="text-indigo-400">kind</span>: HorizontalPodAutoscaler
+<span class="text-indigo-400">metadata</span>:
+  <span class="text-indigo-400">name</span>: report-api-hpa
+<span class="text-indigo-400">spec</span>:
+  <span class="text-indigo-400">scaleTargetRef</span>:
+    <span class="text-indigo-400">kind</span>: Deployment; <span class="text-indigo-400">name</span>: report-api
+  <span class="text-indigo-400">minReplicas</span>: 1; <span class="text-indigo-400">maxReplicas</span>: 10
+  <span class="text-indigo-400">metrics</span>:
+  - <span class="text-indigo-400">type</span>: Resource
+    <span class="text-indigo-400">resource</span>:
+      <span class="text-indigo-400">name</span>: cpu; <span class="text-indigo-400">target</span>: { <span class="text-indigo-400">type</span>: Utilization, <span class="text-indigo-400">averageUtilization</span>: 75 }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 12: GCP Cloud Integration -->
+                <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 12 / GCP Cloud Integration</span>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">在 GCP (GKE) 上實作 HPA 與雲端整合</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 my-auto text-xs leading-relaxed">
+                        <!-- Autoscaler -->
+                        <div class="bg-indigo-50/20 border border-indigo-100 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-4 text-6xl text-brand-indigo/5"><i class="fa-solid fa-arrows-up-down-left-right"></i></div>
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-brand-indigo text-white flex items-center justify-center mb-3 shadow-sm">
+                                    <i class="fa-solid fa-arrows-up-down-left-right text-base"></i>
+                                </div>
+                                <h3 class="text-sm font-extrabold text-brand-navy mb-2">GKE Cluster Autoscaler</h3>
+                                <p class="text-brand-textSecondary">
+                                    當 HPA 橫向擴展 Pod 時，若 GKE 叢集資源不足，自動調度 <strong>Cluster Autoscaler</strong> 在 <code>asia-east1</code> 自動擴充 GKE 工作節點 VM，實現「Pod 擴展 ➔ 節點擴充」雙重彈性擴展。
+                                </p>
+                            </div>
+                            <div class="mt-4 bg-white/80 border border-indigo-100 rounded-xl p-2.5 text-[10px] text-brand-indigo font-semibold">
+                                <i class="fa-solid fa-circle-check mr-1"></i> 自動優化成本，離峰時收縮節點。
+                            </div>
+                        </div>
+
+                        <!-- Workload Identity -->
+                        <div class="bg-teal-50/20 border border-teal-100 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-4 text-6xl text-brand-teal/5"><i class="fa-solid fa-fingerprint"></i></div>
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center mb-3 shadow-sm">
+                                    <i class="fa-solid fa-fingerprint text-base"></i>
+                                </div>
+                                <h3 class="text-sm font-extrabold text-brand-navy mb-2">GCP Workload Identity</h3>
+                                <p class="text-brand-textSecondary">
+                                    捨棄傳統 IAM Key 檔案，透過 GCP <strong>Workload Identity</strong> 將 GKE ServiceAccount 安全連結至 GCP IAM 服務帳戶（GSA）。實現最小權限原則，無痛存取 GCP 託管資源。
+                                </p>
+                            </div>
+                            <div class="mt-4 bg-white/80 border border-teal-100 rounded-xl p-2.5 text-[10px] text-brand-teal font-semibold">
+                                <i class="fa-solid fa-lock mr-1"></i> 免密鑰認證，免除金鑰外洩風險。
+                            </div>
+                        </div>
+
+                        <!-- Secret Manager & ESO -->
+                        <div class="bg-emerald-50/20 border border-emerald-100 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+                            <div class="absolute -right-4 -bottom-4 text-6xl text-brand-emerald/5"><i class="fa-solid fa-key"></i></div>
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-brand-emerald text-white flex items-center justify-center mb-3 shadow-sm">
+                                    <i class="fa-solid fa-key text-base"></i>
+                                </div>
+                                <h3 class="text-sm font-extrabold text-brand-navy mb-2">Secret Manager & ESO</h3>
+                                <p class="text-brand-textSecondary">
+                                    敏感資訊（如 ClickHouse 密碼、API Key）集中管理於 <strong>GCP Secret Manager</strong>，GKE 內部利用 <strong>External Secrets Operator (ESO)</strong> 異步同步至 Kubernetes Secret 資源，供 Pod 安全掛載。
+                                </p>
+                            </div>
+                            <div class="mt-4 bg-white/80 border border-emerald-100 rounded-xl p-2.5 text-[10px] text-brand-emerald font-semibold">
+                                <i class="fa-solid fa-shield mr-1"></i> 集中管理金鑰，支援動態輪替。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 13: HPA Scaling Demo -->
+                <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
+                    <div class="border-l-4 border-brand-indigo pl-4">
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 13 / Scalability Demo</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">換班尖峰：Kubernetes HPA 動態擴容架構</h2>
                     </div>
 
@@ -841,7 +968,7 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                                     <span class="px-2.5 py-0.5 rounded bg-indigo-50 text-brand-indigo text-xs font-bold border border-indigo-100">8 Pods Active</span>
                                 </div>
                                 <p class="text-brand-textSecondary leading-relaxed mb-4">
-                                    交班尖峰瞬間流量飆升（QPS &gt; 1,400/s），系統 CPU 使用率觸及 70% 臨界值。HPA **秒級感應並擴充** API 服務至 **8 個無狀態 Pod 副本**，將海量刷卡流量均勻分攤。
+                                    交班尖峰瞬間流量飆升（QPS &gt; 1,400/s），系統 CPU 使用率觸及 70% 臨界值。HPA 偵測並擴充 API 服務至 8 個無狀態 Pod 副本，將海量刷卡流量均勻分攤。
                                 </p>
                             </div>
                             <div class="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
@@ -864,10 +991,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 12: Observability Dashboard -->
+                <!-- Slide 14: Observability Dashboard -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 12 / Observability Dashboard</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 14 / Observability Dashboard</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">可觀測性：Prometheus + Grafana 監控指標</h2>
                     </div>
 
@@ -901,10 +1028,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 13: Failure Scenario & Consistency Strategy -->
+                <!-- Slide 15: Failure Scenario & Consistency Strategy -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 13 / Failure Scenario & Consistency Strategy</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 15 / Failure Scenario & Consistency Strategy</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">故障情境與一致性策略</h2>
                     </div>
 
@@ -940,10 +1067,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
 
 
 
-                <!-- Slide 14: Technology Trade-off Matrix -->
+                <!-- Slide 16: Technology Trade-off Matrix -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4 mb-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 14 / Technology Trade-off Matrix</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 16 / Technology Trade-off Matrix</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">技術選型不是堆工具，而是取捨</h2>
                     </div>
                     <div class="flex-grow flex items-center">
@@ -1001,10 +1128,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 15: Testing & Validation -->
+                <!-- Slide 17: Testing & Validation -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 15 / Testing & Validation</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 17 / Testing & Validation</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">分層自動化測試與四大驗證案例</h2>
                     </div>
 
@@ -1044,10 +1171,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                 </div>
 
 
-                <!-- Slide 16: Requirements Mapping -->
+                <!-- Slide 18: Requirements Mapping -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4 mb-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 16 / Requirements Mapping</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 18 / Requirements Mapping</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">功能需求與雲原生架構對照表</h2>
                     </div>
                     <div class="overflow-x-auto flex-grow flex items-center">
@@ -1095,10 +1222,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     </div>
                 </div>
 
-                <!-- Slide 17: Demo Scenario Menu -->
+                <!-- Slide 19: Demo Scenario Menu -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 17 / Demo Scenario Menu</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 19 / Demo Scenario Menu</span>
                         <h2 class="text-2xl md:text-3xl font-extrabold text-brand-navy">Demo 主流程：從刷卡到報表產出</h2>
                     </div>
                     <div class="grid grid-cols-1 gap-2 my-auto text-[13px]">
@@ -1144,10 +1271,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-brand-textSecondary shadow-sm"><b class="text-brand-navy">Demo 主軸：</b>先展示 Fast Path 的低延遲與防重複刷卡，再展示 Slow Path 的報表、匯出與端到端資料流。</div>
                 </div>
 
-                <!-- Slide 19: Validation & Utility Demo Scripts -->
+                <!-- Slide 20: Validation & Utility Demo Scripts -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full">
                     <div class="border-l-4 border-brand-indigo pl-4">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 18 / Validation & Utility Scripts</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 20 / Validation & Utility Scripts</span>
                         <h2 class="text-3xl md:text-4xl font-extrabold text-brand-navy">驗證與壓測腳本：證明系統真的可用</h2>
                     </div>
                     <div class="grid grid-cols-2 gap-4 my-auto text-sm">
@@ -1161,10 +1288,10 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
                     <div class="grid grid-cols-3 gap-4 text-sm"><div class="bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-sm"><b class="text-brand-indigo block mb-1">E2E Correctness</b><span class="text-brand-textSecondary">確認刷卡事件完整寫入分析資料庫。</span></div><div class="bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-sm"><b class="text-brand-teal block mb-1">SLA & Benchmark</b><span class="text-brand-textSecondary">用數據證明 Fast / Slow Path 效能。</span></div><div class="bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-sm"><b class="text-brand-amber block mb-1">Demo Reset</b><span class="text-brand-textSecondary">快速重置資料，確保現場演示穩定。</span></div></div>
                 </div>
 
-                <!-- Slide 20: Conclusion -->
+                <!-- Slide 21: Conclusion -->
                 <div class="slide w-[5.263158%] px-4 flex-shrink-0 h-full flex flex-col justify-between h-full text-center">
                     <div class="border-l-4 border-brand-indigo pl-4 text-left">
-                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 19 / Summary & Conclusion</span>
+                        <span class="text-xs font-bold text-brand-indigo block tracking-widest uppercase">Slide 21 / Summary & Conclusion</span>
                     </div>
 
                     <div class="my-auto max-w-3xl mx-auto space-y-6">
@@ -1225,7 +1352,7 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
 
     <!-- Script for presentations switching, animation and simulation -->
     <script>
-        const totalSlides = 19;
+        const totalSlides = 21;
         let currentSlide = 1;
         const slides = document.querySelectorAll('.slide');
 
@@ -1241,6 +1368,8 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
             "Slow Path Pipeline",
             "Hierarchical Permissions",
             "Kubernetes Deployment",
+            "GKE HPA Configuration",
+            "GCP Cloud Integration",
             "HPA Scaling Demo",
             "Observability Dash",
             "Failure Scenario",
@@ -1255,6 +1384,15 @@ door:status:{doorId} ➔ "ONLINE" | "OFFLINE"</pre>
         function initSlides() {
             // Setup slides-counter
             document.getElementById('total-slides-num').innerText = totalSlides;
+            
+            // Set dynamic track and slide widths
+            const track = document.getElementById('slides-track');
+            if (track) {
+                track.style.width = `${totalSlides * 100}%`;
+            }
+            slides.forEach(slide => {
+                slide.style.width = `${100 / totalSlides}%`;
+            });
             
             // Build Quick Navigation Dots
             const dotsContainer = document.getElementById('slide-dots-container');

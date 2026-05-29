@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,45 +22,52 @@ import (
 )
 
 func main() {
+	// Configure global slog JSON logger
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	cfg := config.Load()
 
 	reportCache := cache.NewReportCache(cfg.RedisAddr)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := reportCache.Ping(ctx); err != nil {
-		log.Printf("WARNING: Redis unavailable — report cache disabled: %v", err)
+		slog.Warn("Redis unavailable — report cache disabled", "error", err)
 	}
 
-	var orgRepo *repository.OrgRepository
+	var orgRepo repository.OrgRepository
 	var err error
 	for i := 0; i < 30; i++ {
 		orgRepo, err = repository.NewOrgRepository(cfg.ClickHouseAddr, cfg.ClickHouseUser, cfg.ClickHousePass)
 		if err == nil {
 			break
 		}
-		log.Printf("waiting for ClickHouse: %v", err)
+		slog.Warn("waiting for ClickHouse", "error", err, "attempt", i+1)
 		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
-		log.Fatalf("org repository: %v", err)
+		slog.Error("org repository connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer orgRepo.Close()
 
 	reportRepo, err := repository.NewReportRepository(cfg.ClickHouseAddr, cfg.ClickHouseUser, cfg.ClickHousePass)
 	if err != nil {
-		log.Fatalf("report repository: %v", err)
+		slog.Error("report repository connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer reportRepo.Close()
 
 	inoutRepo, err := repository.NewInOutRepository(cfg.ClickHouseAddr, cfg.ClickHouseUser, cfg.ClickHousePass)
 	if err != nil {
-		log.Fatalf("inout repository: %v", err)
+		slog.Error("inout repository connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer inoutRepo.Close()
 
 	jobStore, err := export.NewJobStore(cfg.ExportDir)
 	if err != nil {
-		log.Fatalf("export jobs: %v", err)
+		slog.Error("export jobs initialization failed", "error", err)
+		os.Exit(1)
 	}
 
 	svc := service.NewReportService(orgRepo, reportRepo, inoutRepo, reportCache, jobStore)
@@ -109,9 +116,10 @@ func main() {
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}
 
 	go func() {
-		log.Printf("report-api listening on %s", cfg.HTTPAddr)
+		slog.Info("report-api listening", "addr", cfg.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			slog.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -122,6 +130,6 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("shutdown: %v", err)
+		slog.Error("shutdown error", "error", err)
 	}
 }

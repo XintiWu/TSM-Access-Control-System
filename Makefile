@@ -1,6 +1,6 @@
 .PHONY: up down build seed migrate demo demo-ban demo-report demo-full demo-passback-alert \
         swipe swipe-demo ban unban test test-unit test-integration test-e2e-pipeline \
-        verify-pipeline verify-performance hooks load-demo load-shift-change shift-change-prep \
+        verify-pipeline verify-performance test-performance-k6 hooks load-demo load-shift-change shift-change-prep \
         seed-load-users test-report-cache benchmark-report-api perf-viz schema-ch-cloud
 
 # =============================================================================
@@ -17,7 +17,8 @@ ifneq (,$(wildcard ./.env))
   CLICKHOUSE_ADDR     := $(patsubst "%",%,$(CLICKHOUSE_ADDR))
   CLICKHOUSE_USER     := $(patsubst "%",%,$(CLICKHOUSE_USER))
   CLICKHOUSE_PASSWORD := $(patsubst "%",%,$(CLICKHOUSE_PASSWORD))
-  export API_URL ADMIN_URL REPORT_URL REDIS_ADDR
+  API_KEY        := $(patsubst "%",%,$(API_KEY))
+  export API_URL ADMIN_URL REPORT_URL REDIS_ADDR API_KEY
   export CLICKHOUSE_ADDR CLICKHOUSE_USER CLICKHOUSE_PASSWORD
 endif
 
@@ -25,6 +26,7 @@ endif
 API_URL    ?= http://localhost:8080
 ADMIN_URL  ?= http://localhost:8081
 REPORT_URL ?= http://localhost:8082
+API_KEY    ?= dev-api-key-2026
 
 # Parse REDIS_ADDR → REDIS_HOST + REDIS_PORT (format: host:port)
 ifneq ($(REDIS_ADDR),)
@@ -213,6 +215,9 @@ verify-pipeline:
 verify-performance:
 	@chmod +x scripts/demo/verify-performance.sh
 	@./scripts/demo/verify-performance.sh
+
+test-performance-k6:
+	k6 run -e API_URL=$(API_URL) -e REPORT_URL=$(REPORT_URL) -e API_KEY=$(API_KEY) scripts/k6-load-test.js
 
 test-report-cache:
 	@chmod +x scripts/demo/test-report-cache.sh
