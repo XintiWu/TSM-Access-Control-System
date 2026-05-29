@@ -93,7 +93,7 @@ func main() {
 
 	r.GET("/health", func(c *gin.Context) {
 		if err := orgRepo.Ping(c.Request.Context()); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "clickhouse": err.Error()})
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": "database unavailable"})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

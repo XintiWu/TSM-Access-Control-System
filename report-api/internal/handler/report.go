@@ -85,7 +85,8 @@ func (h *ReportHandler) PersonalReport(c *gin.Context) {
 	var req model.PersonalReportRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		requestTotal.WithLabelValues("personal", "400").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Warn("invalid query parameters", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query parameters"})
 		return
 	}
 
@@ -122,7 +123,8 @@ func (h *ReportHandler) DepartmentReport(c *gin.Context) {
 	var req model.DepartmentReportRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		requestTotal.WithLabelValues("department", "400").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Warn("invalid query parameters", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query parameters"})
 		return
 	}
 
@@ -130,7 +132,8 @@ func (h *ReportHandler) DepartmentReport(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("department", "403").Inc()
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			slog.Warn("access denied", "error", err)
+			c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 			return
 		}
 		slog.Error("internal error", "endpoint", "department", "error", err)
@@ -158,7 +161,8 @@ func (h *ReportHandler) AuditLog(c *gin.Context) {
 	var req model.AuditLogRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		requestTotal.WithLabelValues("audit", "400").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Warn("invalid query parameters", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query parameters"})
 		return
 	}
 
@@ -190,7 +194,8 @@ func (h *ReportHandler) Export(c *gin.Context) {
 	var req model.ExportRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		requestTotal.WithLabelValues("export", "400").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Warn("invalid query parameters", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query parameters"})
 		return
 	}
 	reportType := req.Type
@@ -207,7 +212,8 @@ func (h *ReportHandler) Export(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("export", "403").Inc()
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			slog.Warn("access denied", "error", err)
+			c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 			return
 		}
 		slog.Error("internal error", "endpoint", "export", "error", err)
@@ -242,7 +248,8 @@ func (h *ReportHandler) ExportJobCreate(c *gin.Context) {
 	var req model.ExportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		requestTotal.WithLabelValues("export_job", "400").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Warn("invalid json payload", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json payload"})
 		return
 	}
 
@@ -327,6 +334,7 @@ func (h *ReportHandler) DoorHeatmap(c *gin.Context) {
 	var req model.DoorHeatmapRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		requestTotal.WithLabelValues("door_heatmap", "400").Inc()
+		slog.Warn("invalid query parameters", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query parameters"})
 		return
 	}
@@ -334,7 +342,8 @@ func (h *ReportHandler) DoorHeatmap(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("door_heatmap", "403").Inc()
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			slog.Warn("access denied", "error", err)
+			c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 			return
 		}
 		slog.Error("internal error", "endpoint", "door_heatmap", "error", err)
@@ -360,14 +369,16 @@ func (h *ReportHandler) AttendanceTrends(c *gin.Context) {
 	var req model.AttendanceTrendsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		requestTotal.WithLabelValues("attendance_trends", "400").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Warn("invalid query parameters", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query parameters"})
 		return
 	}
 	resp, err := h.svc.GetAttendanceTrends(c.Request.Context(), req, orgUnitID, role)
 	if err != nil {
 		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("attendance_trends", "403").Inc()
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			slog.Warn("access denied", "error", err)
+			c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 			return
 		}
 		slog.Error("internal error", "endpoint", "attendance_trends", "error", err)
@@ -393,14 +404,16 @@ func (h *ReportHandler) WorkforceUtilization(c *gin.Context) {
 	var req model.WorkforceUtilizationRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		requestTotal.WithLabelValues("workforce_utilization", "400").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Warn("invalid query parameters", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query parameters"})
 		return
 	}
 	resp, err := h.svc.GetWorkforceUtilization(c.Request.Context(), req, orgUnitID, role)
 	if err != nil {
 		if errors.Is(err, service.ErrAccessDenied) {
 			requestTotal.WithLabelValues("workforce_utilization", "403").Inc()
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			slog.Warn("access denied", "error", err)
+			c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 			return
 		}
 		slog.Error("internal error", "endpoint", "workforce_utilization", "error", err)

@@ -77,7 +77,7 @@ func main() {
 
 	r.GET("/health", func(c *gin.Context) {
 		if err := redisCache.Ping(c.Request.Context()); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "redis": err.Error()})
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": "redis unavailable"})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

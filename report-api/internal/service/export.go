@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/tsmc/report-api/internal/auth"
@@ -125,18 +126,21 @@ func (s *ReportService) RunExportJob(jobID string, req model.ExportRequest, user
 		} else {
 			doc, derr := s.BuildExportDocument(ctx, req, userID, requesterOrgUnitID, role)
 			if derr != nil {
-				s.jobs.MarkFailed(jobID, derr.Error())
+				slog.Error("export document build failed", "jobId", jobID, "error", derr)
+				s.jobs.MarkFailed(jobID, "export job failed due to internal error")
 				return
 			}
 			data, ext, err = RenderExport(doc, req.Format)
 		}
 		if err != nil {
-			s.jobs.MarkFailed(jobID, err.Error())
+			slog.Error("export render failed", "jobId", jobID, "error", err)
+			s.jobs.MarkFailed(jobID, "export job failed due to internal error")
 			return
 		}
 		path := s.jobs.FilePath(jobID, ext)
 		if err := os.WriteFile(path, data, 0o644); err != nil {
-			s.jobs.MarkFailed(jobID, err.Error())
+			slog.Error("export write file failed", "jobId", jobID, "error", err)
+			s.jobs.MarkFailed(jobID, "export job failed due to internal error")
 			return
 		}
 		s.jobs.MarkDone(jobID)

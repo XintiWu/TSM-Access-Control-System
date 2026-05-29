@@ -54,7 +54,8 @@ func (h *AccessHandler) Swipe(c *gin.Context) {
 	var req model.SwipeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		requestTotal.WithLabelValues("swipe", "400").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.Warn("invalid json payload", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json payload"})
 		return
 	}
 	if req.Timestamp.IsZero() {
