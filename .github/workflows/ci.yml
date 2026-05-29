@@ -85,8 +85,8 @@ jobs:
           SONAR_SCANNER_SKIP_JRE_PROVISIONING: true
         with:
           args: >
-            -Dsonar.projectKey=distributed-physical-access-control-system
-            -Dsonar.organization=group9
+            -Dsonar.projectKey=XintiWu_TSM-Access-Control-System
+            -Dsonar.organization=xintiwu
             -Dsonar.go.coverage.reportPaths=access-api/coverage.out,admin-api/coverage.out,cache-invalidation-worker/coverage.out,report-api/coverage.out
             -Dsonar.scanner.skipJreProvisioning=true
 
