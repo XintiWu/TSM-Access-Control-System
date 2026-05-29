@@ -53,8 +53,8 @@ services:
 
   access-api:
     build:
-      context: ./access-api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: access-api/Dockerfile
     ports:
       - "8080:8080"
     environment:
@@ -97,8 +97,8 @@ services:
 
   admin-api:
     build:
-      context: ./admin-api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: admin-api/Dockerfile
     ports:
       - "8081:8081"
     environment:
@@ -133,8 +133,8 @@ services:
 
   report-api:
     build:
-      context: ./report-api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: report-api/Dockerfile
     ports:
       - "8082:8082"
     environment:
