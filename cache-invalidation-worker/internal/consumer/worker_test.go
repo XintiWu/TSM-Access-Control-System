@@ -213,3 +213,67 @@ func TestWorker_Close(t *testing.T) {
 	assert.NoError(t, err)
 	mockReader.AssertExpectations(t)
 }
+
+func TestNewWorker(t *testing.T) {
+	mockCache := new(MockCacheStore)
+	w := NewWorker([]string{"localhost:9092"}, "topic", "group", mockCache)
+	assert.NotNil(t, w)
+	assert.NotNil(t, w.reader)
+	assert.NotNil(t, w.cache)
+}
+
+func TestWorker_Run_FetchError(t *testing.T) {
+	mockReader := new(MockKafkaReader)
+	mockCache := new(MockCacheStore)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Return error first time, then context canceled
+	mockReader.On("FetchMessage", mock.Anything).Return(kafka.Message{}, errors.New("temporary error")).Once()
+	mockReader.On("FetchMessage", mock.Anything).Run(func(args mock.Arguments) {
+		cancel()
+	}).Return(kafka.Message{}, context.Canceled).Once()
+
+	w := &Worker{
+		reader: mockReader,
+		cache:  mockCache,
+	}
+
+	err := w.Run(ctx)
+	assert.NoError(t, err)
+
+	mockReader.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
+}
+
+func TestWorker_Run_CommitError(t *testing.T) {
+	mockReader := new(MockKafkaReader)
+	mockCache := new(MockCacheStore)
+
+	eventJSON := `{"userId":"user-123","action":"BAN"}`
+	msg := kafka.Message{
+		Topic: "perm_events",
+		Value: []byte(eventJSON),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	mockReader.On("FetchMessage", mock.Anything).Return(msg, nil).Once()
+	mockReader.On("FetchMessage", mock.Anything).Run(func(args mock.Arguments) {
+		cancel()
+	}).Return(kafka.Message{}, context.Canceled).Once()
+
+	mockCache.On("SetDenied", mock.Anything, "user-123").Return(nil).Once()
+	mockReader.On("CommitMessages", mock.Anything, []kafka.Message{msg}).Return(errors.New("commit failed")).Once()
+
+	w := &Worker{
+		reader: mockReader,
+		cache:  mockCache,
+	}
+
+	err := w.Run(ctx)
+	assert.NoError(t, err)
+
+	mockReader.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
+}

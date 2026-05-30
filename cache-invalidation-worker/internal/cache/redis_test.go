@@ -59,3 +59,23 @@ func TestSetAndClearDenied(t *testing.T) {
 		t.Fatalf("expected key removed, exists=%d err=%v", n, err)
 	}
 }
+
+func TestRedisCache_Ping(t *testing.T) {
+	addr := redisAddr(t)
+	ctx := context.Background()
+	rc := cache.NewRedisCache(addr)
+	err := rc.Ping(ctx)
+	if err != nil {
+		t.Errorf("expected no error on ping, got %v", err)
+	}
+}
+
+func TestNewRedisCache_Cluster(t *testing.T) {
+	os.Setenv("REDIS_CLUSTER", "true")
+	defer os.Unsetenv("REDIS_CLUSTER")
+
+	rc := cache.NewRedisCache("localhost:6379")
+	if rc == nil {
+		t.Fatal("expected non-nil RedisCache")
+	}
+}
