@@ -8,15 +8,25 @@ import (
 
 	"github.com/segmentio/kafka-go"
 	"github.com/tsmc/aggregation-worker/internal/model"
-	"github.com/tsmc/aggregation-worker/internal/repository"
 )
 
-type Worker struct {
-	reader *kafka.Reader
-	repo   *repository.InOutRepository
+type KafkaReader interface {
+	FetchMessage(ctx context.Context) (kafka.Message, error)
+	CommitMessages(ctx context.Context, msgs ...kafka.Message) error
+	Close() error
 }
 
-func NewWorker(brokers []string, topic, group string, repo *repository.InOutRepository) *Worker {
+type Repository interface {
+	Insert(ctx context.Context, e model.InOutEvent, orgUnitID string) error
+	GetEmployeeOrgUnitID(ctx context.Context, employeeID string) (string, error)
+}
+
+type Worker struct {
+	reader KafkaReader
+	repo   Repository
+}
+
+func NewWorker(brokers []string, topic, group string, repo Repository) *Worker {
 	return &Worker{
 		reader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers:        brokers,

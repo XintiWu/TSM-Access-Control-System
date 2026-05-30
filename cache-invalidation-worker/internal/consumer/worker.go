@@ -7,16 +7,26 @@ import (
 	"time"
 
 	"github.com/segmentio/kafka-go"
-	"github.com/tsmc/cache-invalidation-worker/internal/cache"
 	"github.com/tsmc/cache-invalidation-worker/internal/model"
 )
 
-type Worker struct {
-	reader *kafka.Reader
-	cache  *cache.RedisCache
+type KafkaReader interface {
+	FetchMessage(ctx context.Context) (kafka.Message, error)
+	CommitMessages(ctx context.Context, msgs ...kafka.Message) error
+	Close() error
 }
 
-func NewWorker(brokers []string, topic, group string, c *cache.RedisCache) *Worker {
+type CacheStore interface {
+	SetDenied(ctx context.Context, userID string) error
+	ClearDenied(ctx context.Context, userID string) error
+}
+
+type Worker struct {
+	reader KafkaReader
+	cache  CacheStore
+}
+
+func NewWorker(brokers []string, topic, group string, c CacheStore) *Worker {
 	return &Worker{
 		reader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers:        brokers,

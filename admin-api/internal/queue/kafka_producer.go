@@ -16,8 +16,13 @@ type PermissionPublisher interface {
 	Close() error
 }
 
+type kafkaWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+	Close() error
+}
+
 type KafkaProducer struct {
-	writer *kafka.Writer
+	writer kafkaWriter
 	retry  chan model.PermissionEvent
 	done   chan struct{}
 	wg     sync.WaitGroup
