@@ -217,3 +217,11 @@ func TestWorker_Close(t *testing.T) {
 	assert.NoError(t, err)
 	mockReader.AssertExpectations(t)
 }
+
+func TestNewWorker(t *testing.T) {
+	mockRepo := new(MockRepository)
+	w := NewWorker([]string{"localhost:9092"}, "topic", "group", mockRepo)
+	assert.NotNil(t, w)
+	assert.NotNil(t, w.reader)
+	assert.Equal(t, mockRepo, w.repo)
+}

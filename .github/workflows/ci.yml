@@ -96,10 +96,13 @@ jobs:
           args: >
             -Dsonar.projectKey=XintiWu_TSM-Access-Control-System
             -Dsonar.organization=xintiwu
+            -Dsonar.sources=access-api,admin-api,report-api,pkg,aggregation-worker,cache-invalidation-worker
+            -Dsonar.tests=access-api,admin-api,report-api,pkg,aggregation-worker,cache-invalidation-worker
+            -Dsonar.test.inclusions=**/*_test.go
             -Dsonar.go.coverage.reportPaths=pkg/middleware/coverage.out,access-api/coverage.out,admin-api/coverage.out,cache-invalidation-worker/coverage.out,report-api/coverage.out,aggregation-worker/coverage.out
             -Dsonar.scanner.skipJreProvisioning=true
             -Dsonar.cpd.exclusions=**/*_test.go
-            -Dsonar.exclusions=**/Dockerfile,**/docker-compose.yml,k8s/**,monitoring/**,report-api/report-ui/**,**/.env.example,scripts/**,access-api/tests/integration/**
+            -Dsonar.exclusions=**/*_test.go,**/Dockerfile,**/docker-compose.yml,k8s/**,monitoring/**,report-api/report-ui/**,**/.env.example,scripts/**,access-api/tests/integration/**
             -Dsonar.coverage.exclusions=**/cmd/**,**/repository/**
 
       # 2. 啟動 Docker Compose 服務，供集成與 E2E 測試使用
