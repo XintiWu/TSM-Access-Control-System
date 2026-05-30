@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -723,6 +724,228 @@ func TestReportHandler_WorkforceUtilization(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/reports/analytics/workforce-utilization?orgUnitId="+orgID+"&startDate=2026-05-01&endDate=2026-05-30", nil)
 	req.Header.Set("X-User-ID", uuid.New().String())
 	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestSanitizeExportSlug(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"hello world", "hello-world"},
+		{"Engineering-Dept", "Engineering-Dept"},
+		{"Dept_123", "Dept-123"},
+		{"   special!@#$chars   ", "specialchars"},
+		{"", "org"},
+		{"---", "org"},
+		{"TSMC Fab 14", "TSMC-Fab-14"},
+		{"a.b.c", "a-b-c"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := sanitizeExportSlug(tt.input)
+			if got != tt.want {
+				t.Errorf("sanitizeExportSlug(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExportJobResponse(t *testing.T) {
+	job := &export.Job{
+		ID:        "job-1",
+		Status:    export.JobPending,
+		Format:    "csv",
+		Type:      "personal",
+		CreatedAt: time.Now().UTC(),
+	}
+	resp := exportJobResponse(job)
+	if resp["jobId"] != "job-1" {
+		t.Errorf("jobId = %v, want job-1", resp["jobId"])
+	}
+	if resp["status"] != export.JobPending {
+		t.Errorf("status = %v, want pending", resp["status"])
+	}
+	if resp["format"] != "csv" {
+		t.Errorf("format = %v, want csv", resp["format"])
+	}
+	if resp["type"] != "personal" {
+		t.Errorf("type = %v, want personal", resp["type"])
+	}
+}
+
+func TestReportHandler_PersonalReport_InvalidQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	orgID := uuid.New().String()
+	mockOrg := managerOrg(orgID)
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+	r := gin.New()
+	r.GET("/reports/personal", h.PersonalReport)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/personal", nil) // missing startDate/endDate
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestReportHandler_DepartmentReport_InvalidQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	orgID := uuid.New().String()
+	mockOrg := managerOrg(orgID)
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+	r := gin.New()
+	r.GET("/reports/department", h.DepartmentReport)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/department", nil) // missing required params
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestReportHandler_Export_InvalidQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	orgID := uuid.New().String()
+	mockOrg := managerOrg(orgID)
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+	r := gin.New()
+	r.GET("/reports/export", h.Export)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/export", nil) // missing format, startDate, endDate
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestReportHandler_AuditLog_InvalidQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	orgID := uuid.New().String()
+	mockOrg := managerOrg(orgID)
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+	r := gin.New()
+	r.GET("/reports/audit", h.AuditLog)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/audit", nil) // missing required params
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestReportHandler_DoorHeatmap_InvalidQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	orgID := uuid.New().String()
+	mockOrg := managerOrg(orgID)
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+	r := gin.New()
+	r.GET("/reports/analytics/door-heatmap", h.DoorHeatmap)
+
+	// Test missing X-User-ID
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/analytics/door-heatmap", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestReportHandler_ExportJobCreate_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	orgID := uuid.New().String()
+	mockOrg := managerOrg(orgID)
+	jobStore, _ := export.NewJobStore(t.TempDir())
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, jobStore)
+	h := NewReportHandler(svc, mockOrg)
+	r := gin.New()
+	r.POST("/reports/export/jobs", h.ExportJobCreate)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/reports/export/jobs", strings.NewReader(`{"format":"csv","type":"personal","startDate":"2026-05-01","endDate":"2026-05-30"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", uuid.New().String())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusAccepted {
+		t.Errorf("expected 202, got %d body=%s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err == nil {
+		if id, ok := resp["jobId"].(string); ok {
+			for i := 0; i < 100; i++ {
+				job, found := jobStore.Get(id)
+				if found && job.Status != export.JobPending {
+					break
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+	}
+}
+
+func TestReportHandler_ExportJobGet_JobsUnavailable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	orgID := uuid.New().String()
+	mockOrg := managerOrg(orgID)
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, &MockInOutRepository{}, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+	r := gin.New()
+	r.GET("/reports/export/jobs/:jobId", h.ExportJobGet)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/export/jobs/"+uuid.New().String(), nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestReportHandler_Export_PDFPersonal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	orgID := uuid.New().String()
+	userID := uuid.New().String()
+	mockOrg := &MockOrgRepository{
+		GetEmployeeInfoFn: func(ctx context.Context, employeeID string) (*repository.EmployeeInfo, error) {
+			return &repository.EmployeeInfo{OrgUnitID: orgID, ReportRole: "EMPLOYEE"}, nil
+		},
+	}
+	mockInOut := &MockInOutRepository{
+		GetPersonalEventsFn: func(ctx context.Context, employeeID, startDate, endDate string) ([]model.InOutEvent, error) {
+			return nil, nil
+		},
+	}
+	svc := service.NewReportService(mockOrg, &MockReportRepository{}, mockInOut, nil, nil)
+	h := NewReportHandler(svc, mockOrg)
+	r := gin.New()
+	r.GET("/reports/export", h.Export)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/reports/export?type=personal&format=pdf&startDate=2026-05-01&endDate=2026-05-30", nil)
+	req.Header.Set("X-User-ID", userID)
+	r.ServeHTTP(w, req)
+
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d body=%s", w.Code, w.Body.String())
 	}

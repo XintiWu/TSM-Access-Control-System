@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -13,12 +14,17 @@ import (
 	"github.com/tsmc/admin-api/internal/repository"
 )
 
+type EmployeeRepository interface {
+	Exists(ctx context.Context, userID string) (bool, error)
+	SetActive(ctx context.Context, userID string, active bool) error
+}
+
 type AdminHandler struct {
-	repo      *repository.EmployeeRepository
+	repo      EmployeeRepository
 	publisher queue.PermissionPublisher
 }
 
-func NewAdminHandler(repo *repository.EmployeeRepository, pub queue.PermissionPublisher) *AdminHandler {
+func NewAdminHandler(repo EmployeeRepository, pub queue.PermissionPublisher) *AdminHandler {
 	return &AdminHandler{repo: repo, publisher: pub}
 }
 
