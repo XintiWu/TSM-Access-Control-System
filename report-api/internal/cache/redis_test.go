@@ -54,9 +54,15 @@ func TestReportCache_Invalidate(t *testing.T) {
 	c, mr := newTestCache(t)
 	ctx := context.Background()
 
-	mr.Set("report:dept:org1:key1", "data1")
-	mr.Set("report:dept:org1:key2", "data2")
-	mr.Set("report:personal:user1", "other")
+	if err := mr.Set("report:dept:org1:key1", "data1"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
+	if err := mr.Set("report:dept:org1:key2", "data2"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
+	if err := mr.Set("report:personal:user1", "other"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
 
 	if err := c.Invalidate(ctx, "report:dept:org1:*"); err != nil {
 		t.Fatalf("Invalidate() = %v", err)

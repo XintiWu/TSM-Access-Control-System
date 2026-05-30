@@ -35,7 +35,9 @@ func TestRedisCache_IsDenied_Miss(t *testing.T) {
 
 func TestRedisCache_IsDenied_Hit(t *testing.T) {
 	c, mr := newTestCache(t)
-	mr.Set("perm:denied:user-1", "DENY")
+	if err := mr.Set("perm:denied:user-1", "DENY"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
 	denied, err := c.IsDenied(context.Background(), "user-1")
 	if err != nil {
 		t.Fatalf("IsDenied() error = %v", err)
@@ -58,7 +60,9 @@ func TestRedisCache_GetPassback_None(t *testing.T) {
 
 func TestRedisCache_GetPassback_IN(t *testing.T) {
 	c, mr := newTestCache(t)
-	mr.Set("passback:user-1", "IN")
+	if err := mr.Set("passback:user-1", "IN"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
 	state, err := c.GetPassback(context.Background(), "user-1")
 	if err != nil {
 		t.Fatalf("GetPassback() error = %v", err)
@@ -70,7 +74,9 @@ func TestRedisCache_GetPassback_IN(t *testing.T) {
 
 func TestRedisCache_GetPassback_OUT(t *testing.T) {
 	c, mr := newTestCache(t)
-	mr.Set("passback:user-1", "OUT")
+	if err := mr.Set("passback:user-1", "OUT"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
 	state, err := c.GetPassback(context.Background(), "user-1")
 	if err != nil {
 		t.Fatalf("GetPassback() error = %v", err)
@@ -82,7 +88,9 @@ func TestRedisCache_GetPassback_OUT(t *testing.T) {
 
 func TestRedisCache_GetPassback_UnknownValue(t *testing.T) {
 	c, mr := newTestCache(t)
-	mr.Set("passback:user-1", "WEIRD")
+	if err := mr.Set("passback:user-1", "WEIRD"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
 	state, err := c.GetPassback(context.Background(), "user-1")
 	if err != nil {
 		t.Fatalf("GetPassback() error = %v", err)
@@ -117,7 +125,9 @@ func TestRedisCache_LookupCard_Miss(t *testing.T) {
 
 func TestRedisCache_LookupCard_Hit(t *testing.T) {
 	c, mr := newTestCache(t)
-	mr.Set("card:card-123", "user-42")
+	if err := mr.Set("card:card-123", "user-42"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
 	val, err := c.LookupCard(context.Background(), "card-123")
 	if err != nil {
 		t.Fatalf("LookupCard() error = %v", err)
@@ -152,7 +162,9 @@ func TestRedisCache_GetDoorStatus_Offline(t *testing.T) {
 
 func TestRedisCache_GetDoorStatus_Online(t *testing.T) {
 	c, mr := newTestCache(t)
-	mr.Set("door:status:door-1", "ONLINE")
+	if err := mr.Set("door:status:door-1", "ONLINE"); err != nil {
+		t.Fatalf("mr.Set failed: %v", err)
+	}
 	status, err := c.GetDoorStatus(context.Background(), "door-1")
 	if err != nil {
 		t.Fatalf("GetDoorStatus() error = %v", err)
