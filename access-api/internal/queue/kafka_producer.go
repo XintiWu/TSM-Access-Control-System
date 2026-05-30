@@ -16,8 +16,13 @@ type EventPublisher interface {
 	Close() error
 }
 
+type kafkaWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+	Close() error
+}
+
 type KafkaProducer struct {
-	writer *kafka.Writer
+	writer kafkaWriter
 	retry  chan model.InOutEvent
 	outbox *FileOutbox
 	done   chan struct{}

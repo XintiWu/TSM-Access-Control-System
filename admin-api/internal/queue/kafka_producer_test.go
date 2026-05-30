@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/assert"
@@ -104,3 +105,45 @@ func TestKafkaProducer_Publish_FailAndRetry(t *testing.T) {
 
 	mockWriter.AssertExpectations(t)
 }
+
+func TestNewKafkaProducer(t *testing.T) {
+	brokers := []string{"localhost:9092"}
+	topic := "permissions"
+	p := NewKafkaProducer(brokers, topic)
+	assert.NotNil(t, p)
+	
+	// Wait briefly and close to prevent leaks
+	time.Sleep(5 * time.Millisecond)
+	err := p.Close()
+	assert.NoError(t, err)
+}
+
+func TestKafkaProducer_Publish_RetryBufferFull(t *testing.T) {
+	mockWriter := new(MockKafkaWriter)
+	mockWriter.On("WriteMessages", mock.Anything, mock.Anything).Return(errors.New("kafka error")).Once()
+	mockWriter.On("Close").Return(nil).Once()
+
+	p := &KafkaProducer{
+		writer: mockWriter,
+		retry:  make(chan model.PermissionEvent, 1),
+		done:   make(chan struct{}),
+	}
+
+	// Fill the retry channel
+	p.retry <- model.PermissionEvent{UserID: "blocker"}
+
+	event := model.PermissionEvent{
+		UserID: "user-1",
+		Action: model.ActionBan,
+	}
+
+	// Should fail and return the error because retry channel is full
+	err := p.Publish(context.Background(), event)
+	assert.Error(t, err)
+
+	err = p.Close()
+	assert.NoError(t, err)
+
+	mockWriter.AssertExpectations(t)
+}
+
