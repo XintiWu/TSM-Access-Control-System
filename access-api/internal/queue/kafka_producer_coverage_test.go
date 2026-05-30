@@ -127,12 +127,9 @@ func TestKafkaProducer_Publish_QueueFull_OutboxAppend(t *testing.T) {
 		t.Fatalf("expected nil since it was spooled to outbox, got %v", err)
 	}
 
-	// Let's verify outbox has the event
-	_, err = p.ReplayOutbox(context.Background())
-	if err == nil {
-		// ReplayOutbox might fail because mockWriter is still failing, but count might be 0, which is fine
-		// We just want to check that it reads the outbox
-	}
+	// Let's verify outbox has the event.
+	// ReplayOutbox might fail because mockWriter is still failing, but we just want to ensure it executes.
+	_, _ = p.ReplayOutbox(context.Background())
 }
 
 func TestFileOutbox_FailureModes(t *testing.T) {
